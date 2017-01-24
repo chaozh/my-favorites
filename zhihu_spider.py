@@ -58,7 +58,7 @@ class Collections:
             'Pragma': "no-cache",
             'Referer': "http://www.zhihu.com/"
         }
-        r = requests.get(self.url, headers=headers, verify=False)
+        r = self.requests.get(self.url, headers=headers, verify=False)
         soup = BeautifulSoup(r.content, "lxml")
         self.soup = soup
 
@@ -130,7 +130,7 @@ class Collections:
                     'Pragma': "no-cache",
                     'Referer': "http://www.zhihu.com/"
                 }
-                r = requests.get(self.url + "?page=" + str(i), headers=headers, verify=False)
+                r = self.requests.get(self.url + "?page=" + str(i), headers=headers, verify=False)
                 answer_soup = BeautifulSoup(r.content, "lxml")
                 answer_list = answer_soup.find_all("div", class_="zm-item")
                 if len(answer_list) == 0:
@@ -192,7 +192,7 @@ class Answer:
             'Pragma': "no-cache",
             'Referer': "http://www.zhihu.com/"
         }
-        r = requests.get(self.answer_url, headers=headers, verify=False)
+        r = self.requests.get(self.answer_url, headers=headers, verify=False)
         soup = BeautifulSoup(r.content, "lxml")
         self.soup = soup
 

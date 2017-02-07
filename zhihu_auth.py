@@ -59,19 +59,19 @@ class AccountError(Exception):
 
 class ZhihuAuth:
     def __init__(self):
-        self.requests = requests.Session()
-        self.requests.cookies = cookielib.LWPCookieJar('cookies')
+        self.session = requests.Session()
+        self.session.cookies = cookielib.LWPCookieJar('cookies')
         try:
-            self.requests.cookies.load(ignore_discard=True)
+            self.session.cookies.load(ignore_discard=True)
         except:
             pass
 
     def get_requests(self):
-        return self.requests
+        return self.session
 
     def download_captcha(self):
         url = "https://www.zhihu.com/captcha.gif"
-        r = self.requests.get(url, params={"r": random.random(), "type": "login"}, verify=False)
+        r = requests.get(url, params={"r": random.random(), "type": "login"}, verify=False)
         if int(r.status_code) != 200:
             raise NetworkError(u"验证码请求失败")
         image_name = u"verify." + r.headers['content-type'].split("/")[1]
@@ -99,7 +99,7 @@ class ZhihuAuth:
 
     def search_xsrf(self):
         url = "http://www.zhihu.com/"
-        r = self.requests.get(url, verify=False)
+        r = requests.get(url, verify=False)
         if int(r.status_code) != 200:
             raise NetworkError(u"验证码请求失败")
         results = re.compile(r"\<input\stype=\"hidden\"\sname=\"_xsrf\"\svalue=\"(\S+)\"", re.DOTALL).findall(r.text)
@@ -115,8 +115,8 @@ class ZhihuAuth:
 
         form = {account_type: account, "password": password, "remember_me": True }
 
-        form['_xsrf'] = search_xsrf()
-        form['captcha'] = download_captcha()
+        form['_xsrf'] = self.search_xsrf()
+        form['captcha'] = self.download_captcha()
         return form
 
     def upload_form(self, form):
@@ -136,7 +136,7 @@ class ZhihuAuth:
             'X-Requested-With': "XMLHttpRequest"
         }
 
-        r = self.requests.post(url, data=form, headers=headers, verify=False)
+        r = self.session.post(url, data=form, headers=headers, verify=False)
         if int(r.status_code) != 200:
             raise NetworkError(u"表单上传失败!")
 
@@ -166,7 +166,7 @@ class ZhihuAuth:
     def islogin(self):
         # check session
         url = "https://www.zhihu.com/settings/profile"
-        r = self.requests.get(url, allow_redirects=False, verify=False)
+        r = self.session.get(url, allow_redirects=False, verify=False)
         status_code = int(r.status_code)
         if status_code == 301 or status_code == 302:
             # 未登录

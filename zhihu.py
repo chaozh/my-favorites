@@ -8,8 +8,8 @@ import re
 import random
 from time import sleep
 # module
-from zhihu_auth import ZhihuAuth
-from zhihu_auth import Logging
+from auth import Auth
+from log import Logging
 
 # Setting Logging
 Logging.flag = True
@@ -28,21 +28,162 @@ class Zhihu:
         self.requests = self.auth.get_requests()
 
     def login(self):
-    	self.auth.login()
-		if self.auth.islogin() != True:
-		    Logging.error(u"你的身份信息已经失效，请重新生成身份信息( `python auth.py` )。")
-		    raise Exception("无权限(403)")
+        self.auth.login()
+        if self.auth.islogin() != True:
+            Logging.error(u"你的身份信息已经失效，请重新生成身份信息( `python auth.py` )。")
+            raise Exception("无权限(403)")
     
     def get_requests(self):
-    	return self.requests
+        return self.requests
 
     def get_auth(self):
-    	return self.auth
+        return self.auth
+
+class User:
+    user_url = None
+    # session = None
+    soup = None
+
+    def __init__(self, user_url, user_id=None):
+        if user_url == None:
+            self.user_id = "匿名用户"
+        elif user_url.startswith('www.zhihu.com/people', user_url.index('//') + 2) == False:
+            raise ValueError("\"" + user_url + "\"" + " : it isn't a user url.")
+        else:
+            self.user_url = user_url
+            if user_id != None:
+                self.user_id = user_id
+
+    def parser(self):
+        r = requests.get(self.user_url, headers=headers, verify=False)
+        soup = BeautifulSoup(r.content, "lxml")
+        self.soup = soup
+
+    def get_user_id(self):
+        if self.user_url == None:
+            # print "I'm anonymous user."
+            if platform.system() == 'Windows':
+                return "匿名用户".decode('utf-8').encode('gbk')
+            else:
+                return "匿名用户"
+        else:
+            if hasattr(self, "user_id"):
+                if platform.system() == 'Windows':
+                    return self.user_id.decode('utf-8').encode('gbk')
+                else:
+                    return self.user_id
+            else:
+                if self.soup == None:
+                    self.parser()
+                soup = self.soup
+                user_id = soup.find("div", class_="title-section ellipsis") \
+                    .find("span", class_="name").string.encode("utf-8")
+                self.user_id = user_id
+                if platform.system() == 'Windows':
+                    return user_id.decode('utf-8').encode('gbk')
+                else:
+                    return user_id
+
+    def get_head_img_url(self, scale=4):
+        """
+            By liuwons (https://github.com/liuwons)
+            增加获取知乎识用户的头像url
+            scale对应的头像尺寸:
+                1 - 25×25
+                3 - 75×75
+                4 - 100×100
+                6 - 150×150
+                10 - 250×250
+        """
+        scale_list = [1, 3, 4, 6, 10]
+        scale_name = '0s0ml0t000b'
+        if self.user_url == None:
+            print "I'm anonymous user."
+            return None
+        else:
+            if scale not in scale_list:
+                print 'Illegal scale.'
+                return None
+            if self.soup == None:
+                self.parser()
+            soup = self.soup
+            url = soup.find("img", class_="Avatar Avatar--l")["src"]
+            return url[:-5] + scale_name[scale] + url[-4:]
+
+    def get_data_id(self):
+        """
+            By yannisxu (https://github.com/yannisxu)
+            增加获取知乎 data-id 的方法来确定标识用户的唯一性 #24
+            (https://github.com/egrcc/zhihu-python/pull/24)
+        """
+        if self.user_url == None:
+            print "I'm anonymous user."
+            return 0
+        else:
+            if self.soup == None:
+                self.parser()
+            soup = self.soup
+            data_id = soup.find("button", class_="zg-btn zg-btn-follow zm-rich-follow-btn")['data-id']
+            return data_id
+
+    def get_gender(self):
+        """
+            By Mukosame (https://github.com/mukosame)
+            增加获取知乎识用户的性别
+        """
+        if self.user_url == None:
+            print "I'm anonymous user."
+            return 'unknown'
+        else:
+            if self.soup == None:
+                self.parser()
+            soup = self.soup
+            try:
+                gender = str(soup.find("span",class_="item gender").i)
+                if (gender == '<i class="icon icon-profile-female"></i>'):
+                    return 'female'
+                else:
+                    return 'male'
+            except:
+                return 'unknown'
+
+     def get_collections_num(self):
+        if self.user_url == None:
+            print "I'm anonymous user."
+            return 0
+        else:
+            if self.soup == None:
+                self.parser()
+            soup = self.soup
+            collections_num = int(soup.find_all("span", class_="num")[3].string)
+            return collections_num
+
+    def get_collections(self):
+        if self.user_url == None:
+            print "I'm anonymous user."
+            return
+            yield
+        else:
+            collections_num = self.get_collections_num()
+            if collections_num == 0:
+                return
+                yield
+            else:
+                for i in xrange((collections_num - 1) / 20 + 1):
+                    collection_url = self.user_url + "/collections?page=" + str(i + 1)
+                    r = requests.get(collection_url, headers=headers, verify=False)
+
+                    soup = BeautifulSoup(r.content, "lxml")
+                    for collection in soup.find_all("div", class_="zm-profile-section-item zg-clear"):
+                        url = "http://www.zhihu.com" + \
+                              collection.find("a", class_="zm-profile-fav-item-title")["href"]
+                        name = collection.find("a", class_="zm-profile-fav-item-title").string.encode("utf-8")
+                        yield Collection(url, name, self)
 
 class Collections:
-	soup = None
+    soup = None
 
-	def __init__(self, url, requests, name=None, creator=None):
+    def __init__(self, url, requests, name=None, creator=None):
         self.requests = requests
 
         if not re.compile(r"(http|https)://www.zhihu.com/collection/\d{8}").match(url):
@@ -89,17 +230,17 @@ class Collections:
             return creator
 
     def get_answers(self, pageNo):
-    	if pageNo == 1:
-	    	if self.soup == None:
-	            self.parser()
-	        soup = self.soup
-	    else:
-	        r = self.requests.get(self.url + "?page=" + str(pageNo), headers=headers, verify=False)
-	        soup = BeautifulSoup(r.content, "lxml")
-	        
+        if pageNo == 1:
+            if self.soup == None:
+                self.parser()
+            soup = self.soup
+        else:
+            r = self.requests.get(self.url + "?page=" + str(pageNo), headers=headers, verify=False)
+            soup = BeautifulSoup(r.content, "lxml")
+            
         answer_list = soup.find_all("div", class_="zm-item")
         if len(answer_list) == 0:
-            yield
+            return
         else:
             for answer in answer_list:
                 if not answer.find("p", class_="note"):
@@ -123,10 +264,10 @@ class Collections:
                     yield Answer(answer_url, self.requests, author)
 
     def get_all_answers(self):
-    	i = 1
-    	while True:
-        	self.get_answers(i)
-        	i = i + 1
+        i = 1
+        while True:
+            self.get_answers(i)
+            i = i + 1
             
 class Question:
     soup = None
@@ -356,18 +497,17 @@ class Answer:
             f.write("\n" + "原链接: " + self.answer_url)
         f.close()
 
-    # def to_html(self):
-    # content = self.get_content()
-    # if self.get_author().get_user_id() == "匿名用户":
-    # file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.html"
-    # f = open(file_name, "wt")
-    # print file_name
-    # else:
-    # file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.html"
-    # f = open(file_name, "wt")
-    # print file_name
-    # f.write(str(content))
-    # f.close()
+    def to_html(self):
+        content = self.get_content()
+        if self.get_author().get_user_id() == "匿名用户":
+            file_name = self.get_question().get_title() + "回答.html"
+        else:
+            file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.html"
+            f = open(file_name, "wt")
+        # print file_name
+        f = open(file_name, "wt")
+        f.write(str(content))
+        f.close()
 
     def to_md(self):
         content = self.get_content()
@@ -479,139 +619,12 @@ class Answer:
                     yield User(voter_url, voter_id)
 
 
-class User:
-    user_url = None
-    # session = None
-    soup = None
-
-    def __init__(self, user_url, user_id=None):
-        if user_url == None:
-            self.user_id = "匿名用户"
-        elif user_url.startswith('www.zhihu.com/people', user_url.index('//') + 2) == False:
-            raise ValueError("\"" + user_url + "\"" + " : it isn't a user url.")
-        else:
-            self.user_url = user_url
-            if user_id != None:
-                self.user_id = user_id
-
-    def parser(self):
-        r = requests.get(self.user_url, headers=headers, verify=False)
-        soup = BeautifulSoup(r.content, "lxml")
-        self.soup = soup
-
-    def get_user_id(self):
-        if self.user_url == None:
-            # print "I'm anonymous user."
-            if platform.system() == 'Windows':
-                return "匿名用户".decode('utf-8').encode('gbk')
-            else:
-                return "匿名用户"
-        else:
-            if hasattr(self, "user_id"):
-                if platform.system() == 'Windows':
-                    return self.user_id.decode('utf-8').encode('gbk')
-                else:
-                    return self.user_id
-            else:
-                if self.soup == None:
-                    self.parser()
-                soup = self.soup
-                user_id = soup.find("div", class_="title-section ellipsis") \
-                    .find("span", class_="name").string.encode("utf-8")
-                self.user_id = user_id
-                if platform.system() == 'Windows':
-                    return user_id.decode('utf-8').encode('gbk')
-                else:
-                    return user_id
-
-    def get_head_img_url(self, scale=4):
-        """
-            By liuwons (https://github.com/liuwons)
-            增加获取知乎识用户的头像url
-            scale对应的头像尺寸:
-                1 - 25×25
-                3 - 75×75
-                4 - 100×100
-                6 - 150×150
-                10 - 250×250
-        """
-        scale_list = [1, 3, 4, 6, 10]
-        scale_name = '0s0ml0t000b'
-        if self.user_url == None:
-            print "I'm anonymous user."
-            return None
-        else:
-            if scale not in scale_list:
-                print 'Illegal scale.'
-                return None
-            if self.soup == None:
-                self.parser()
-            soup = self.soup
-            url = soup.find("img", class_="Avatar Avatar--l")["src"]
-            return url[:-5] + scale_name[scale] + url[-4:]
-
-    def get_data_id(self):
-        """
-            By yannisxu (https://github.com/yannisxu)
-            增加获取知乎 data-id 的方法来确定标识用户的唯一性 #24
-            (https://github.com/egrcc/zhihu-python/pull/24)
-        """
-        if self.user_url == None:
-            print "I'm anonymous user."
-            return 0
-        else:
-            if self.soup == None:
-                self.parser()
-            soup = self.soup
-            data_id = soup.find("button", class_="zg-btn zg-btn-follow zm-rich-follow-btn")['data-id']
-            return data_id
-
-    def get_gender(self):
-        """
-            By Mukosame (https://github.com/mukosame)
-            增加获取知乎识用户的性别
-        """
-        if self.user_url == None:
-            print "I'm anonymous user."
-            return 'unknown'
-        else:
-            if self.soup == None:
-                self.parser()
-            soup = self.soup
-            try:
-                gender = str(soup.find("span",class_="item gender").i)
-                if (gender == '<i class="icon icon-profile-female"></i>'):
-                    return 'female'
-                else:
-                    return 'male'
-            except:
-                return 'unknown'
-	def get_collections(self):
-        if self.user_url == None:
-            print "I'm anonymous user."
-            return
-            yield
-        else:
-            collections_num = self.get_collections_num()
-            if collections_num == 0:
-                return
-                yield
-            else:
-                for i in xrange((collections_num - 1) / 20 + 1):
-                    collection_url = self.user_url + "/collections?page=" + str(i + 1)
-                    r = requests.get(collection_url, headers=headers, verify=False)
-
-                    soup = BeautifulSoup(r.content, "lxml")
-                    for collection in soup.find_all("div", class_="zm-profile-section-item zg-clear"):
-                        url = "http://www.zhihu.com" + \
-                              collection.find("a", class_="zm-profile-fav-item-title")["href"]
-                        name = collection.find("a", class_="zm-profile-fav-item-title").string.encode("utf-8")
-                        yield Collection(url, name, self)
-
-
 def main():
-    zhihu=Zhihu()
-    zhihu.login()
+    user = User()
+    for collection in user.get_collections():
+        for answer in collection.get_all_answers()
+            answer.to_html()
+    
 
 if __name__=='__main__':
     main()

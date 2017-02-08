@@ -12,32 +12,8 @@ from getpass import getpass
 from ConfigParser import ConfigParser
 
 # requirements
-import requests, termcolor
-
-class Logging:
-    flag = True
-
-    @staticmethod
-    def error(msg):
-        if Logging.flag == True:
-            print "".join(  [ termcolor.colored("ERROR", "red"), ": ", termcolor.colored(msg, "white") ] )
-    @staticmethod
-    def warn(msg):
-        if Logging.flag == True:
-            print "".join(  [ termcolor.colored("WARN", "yellow"), ": ", termcolor.colored(msg, "white") ] )
-    @staticmethod
-    def info(msg):
-        # attrs=['reverse', 'blink']
-        if Logging.flag == True:
-            print "".join(  [ termcolor.colored("INFO", "magenta"), ": ", termcolor.colored(msg, "white") ] )
-    @staticmethod
-    def debug(msg):
-        if Logging.flag == True:
-            print "".join(  [ termcolor.colored("DEBUG", "magenta"), ": ", termcolor.colored(msg, "white") ] )
-    @staticmethod
-    def success(msg):
-        if Logging.flag == True:
-            print "".join(  [ termcolor.colored("SUCCES", "green"), ": ", termcolor.colored(msg, "white") ] )
+import requests
+from log import Logging
 
 class LoginPasswordError(Exception):
     def __init__(self, message):
@@ -56,8 +32,7 @@ class AccountError(Exception):
         else: self.message = message
         Logging.error(self.message)
 
-
-class ZhihuAuth:
+class Auth:
     def __init__(self):
         self.session = requests.Session()
         self.session.cookies = cookielib.LWPCookieJar('cookies')
@@ -234,5 +209,5 @@ class ZhihuAuth:
 
 if __name__ == "__main__":
     # login(account="xxxx@email.com", password="xxxxx")
-    auth = ZhihuAuth()
+    auth = Auth()
     auth.login()

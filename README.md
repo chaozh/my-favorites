@@ -1,6 +1,8 @@
 # my-favorites
 spider for exporting my favorites
 
+https://github.com/geekan/scrapy-examples
+
 ## zhihu
 
 回答、图片
@@ -12,12 +14,13 @@ https://github.com/DsSysWay/zhihu_fav_answer_crawl
 ## weibo
 
 评论、链接
-
+API：
 http://open.weibo.com/wiki/API#.E6.94.B6.E8.97.8F
+https://github.com/michaelliao/sinaweibopy
 
 ## 豆瓣
 
 链接
-豆瓣API：
+API：
 https://github.com/poem/ScrapyDouban
 

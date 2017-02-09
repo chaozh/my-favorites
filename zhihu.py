@@ -147,7 +147,7 @@ class User:
             except:
                 return 'unknown'
 
-     def get_collections_num(self):
+    def get_collections_num(self):
         if self.user_url == None:
             print "I'm anonymous user."
             return 0
@@ -155,7 +155,7 @@ class User:
             if self.soup == None:
                 self.parser()
             soup = self.soup
-            collections_num = int(soup.find_all("span", class_="num")[3].string)
+            collections_num = int(soup.find_all("span", class_="Tabs-meta")[3].string)
             return collections_num
 
     def get_collections(self):
@@ -174,11 +174,11 @@ class User:
                     r = requests.get(collection_url, headers=headers, verify=False)
 
                     soup = BeautifulSoup(r.content, "lxml")
-                    for collection in soup.find_all("div", class_="zm-profile-section-item zg-clear"):
+                    for collection in soup.find_all("div", class_="FavlistItem-title"):
                         url = "http://www.zhihu.com" + \
-                              collection.find("a", class_="zm-profile-fav-item-title")["href"]
-                        name = collection.find("a", class_="zm-profile-fav-item-title").string.encode("utf-8")
-                        yield Collection(url, name, self)
+                              collection.find("a")["href"]
+                        name = collection.find("a").string.encode("utf-8")
+                        yield Collection(url, requests, name, self)
 
 class Collections:
     soup = None
@@ -620,9 +620,9 @@ class Answer:
 
 
 def main():
-    user = User()
+    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     for collection in user.get_collections():
-        for answer in collection.get_all_answers()
+        for answer in collection.get_all_answers():
             answer.to_html()
     
 

@@ -4,8 +4,7 @@
 import requests
 from bs4 import BeautifulSoup
 import urllib
-import re
-import random
+import re, random, platform
 from time import sleep
 # module
 from auth import Auth
@@ -170,9 +169,9 @@ class User:
                 yield
             else:
                 for i in xrange((collections_num - 1) / 20 + 1):
-                    collection_url = self.user_url + "/collections?page=" + str(i + 1)
+                    collection_url = self.user_url + "collections?page=" + str(i + 1)
                     r = requests.get(collection_url, headers=headers, verify=False)
-
+                    
                     soup = BeautifulSoup(r.content, "lxml")
                     for collection in soup.find_all("div", class_="FavlistItem-title"):
                         url = "http://www.zhihu.com" + \
@@ -180,7 +179,7 @@ class User:
                         name = collection.find("a").string.encode("utf-8")
                         yield Collection(url, requests, name, self)
 
-class Collections:
+class Collection:
     soup = None
 
     def __init__(self, url, requests, name=None, creator=None):
@@ -190,7 +189,7 @@ class Collections:
             raise ValueError("\"" + url + "\"" + " : it isn't a collection url.")
         else:
             self.url = url
-            # print 'collection url',url
+            print 'collection url',url
             if name != None:
                 self.name = name
             if creator != None:
@@ -239,8 +238,10 @@ class Collections:
             soup = BeautifulSoup(r.content, "lxml")
             
         answer_list = soup.find_all("div", class_="zm-item")
+
         if len(answer_list) == 0:
             return
+            yield
         else:
             for answer in answer_list:
                 if not answer.find("p", class_="note"):
@@ -248,31 +249,39 @@ class Collections:
                     if question_link != None:
                         question_url = "http://www.zhihu.com" + question_link.a["href"]
                         question_title = question_link.a.string.encode("utf-8")
-                    #question = Question(question_url, self.requests, question_title)
-                    answer_url = "http://www.zhihu.com" + answer.find("span", class_="answer-date-link-wrap").a[
+                    question = Question(question_url, self.requests, question_title)
+
+                    answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
                         "href"]
+                    print answer_url
+
                     author = None
-                    if answer.find("div", class_="zm-item-answer-author-info").get_text(strip='\n') == u"匿名用户":
-                        # author_id = "匿名用户"
-                        author_url = None
-                        author = User(author_url)
-                    else:
-                        author_tag = answer.find("div", class_="zm-item-answer-author-info").find_all("a")[0]
-                        author_id = author_tag.string.encode("utf-8")
-                        author_url = "http://www.zhihu.com" + author_tag["href"]
-                        author = User(author_url, author_id)
-                    yield Answer(answer_url, self.requests, author)
+                    # if answer.find("div", class_="zm-item-answer-author-info").get_text(strip='\n') == u"匿名用户":
+                    #     # author_id = "匿名用户"author-link-line
+                    #     author_url = None
+                    #     author = User(author_url)
+                    # else:
+                    #     # issue: some items cant find author-link ???
+                    #     author_tag = answer.find("a", class_="author-link")
+                    #     if author_tag != None:
+                    #         author_id = author_tag.string.encode("utf-8")
+                    #         author_url = "http://www.zhihu.com" + author_tag["href"]
+                    #         author = User(author_url, author_id)
+                    
+                    yield Answer(answer_url, self.requests, author, question)
 
     def get_all_answers(self):
         i = 1
+        # deal with yield
         while True:
-            self.get_answers(i)
+            return self.get_answers(i)
             i = i + 1
             
 class Question:
     soup = None
 
-    def __init__(self, url, title=None):
+    def __init__(self, url, requests, title=None):
+        self.requests = requests
 
         if not re.compile(r"(http|https)://www.zhihu.com/question/\d{8}").match(url):
             raise ValueError("\"" + url + "\"" + " : it isn't a question url.")
@@ -282,7 +291,7 @@ class Question:
         if title != None: self.title = title
 
     def parser(self):
-        r = requests.get(self.url,headers=headers, verify=False)
+        r = self.requests.get(self.url,headers=headers, verify=False)
         self.soup = BeautifulSoup(r.content, "lxml")
 
     def get_title(self):
@@ -348,12 +357,14 @@ class Question:
 class Answer:
     soup = None
 
-    def __init__(self, answer_url, requests, author=None, upvote=None, content=None):
+    def __init__(self, answer_url, requests, author=None, question=None, upvote=None, content=None):
         self.answer_url = answer_url
         self.requests = requests
 
         if author != None:
             self.author = author
+        if question != None:
+            self.question = question
         if upvote != None:
             self.upvote = upvote
         if content != None:
@@ -365,14 +376,17 @@ class Answer:
         self.soup = soup
 
     def get_question(self):
-        if self.soup == None:
-            self.parser()
-        soup = self.soup
-        question_link = soup.find("h2", class_="zm-item-title zm-editable-content").a
-        url = "http://www.zhihu.com" + question_link["href"]
-        title = question_link.string.encode("utf-8")
-        question = Question(url, self.requests, title)
-        return question
+        if hasattr(self, "question"):
+            return self.question
+        else:
+            if self.soup == None:
+                self.parser()
+            soup = self.soup
+            question_link = soup.find("h2", class_="zm-item-title zm-editable-content").a
+            url = "http://www.zhihu.com" + question_link["href"]
+            title = question_link.string.encode("utf-8")
+            question = Question(url, self.requests, title)
+            return question
 
     def get_author(self):
         if hasattr(self, "author"):
@@ -381,14 +395,17 @@ class Answer:
             if self.soup == None:
                 self.parser()
             soup = self.soup
+            author = None
             if soup.find("div", class_="zm-item-answer-author-info").get_text(strip='\n') == u"匿名用户":
                 author_url = None
                 author = User(author_url)
             else:
-                author_tag = soup.find("div", class_="zm-item-answer-author-info").find_all("a")[1]
-                author_id = author_tag.string.encode("utf-8")
-                author_url = "http://www.zhihu.com" + author_tag["href"]
-                author = User(author_url, author_id)
+                # issue: some items cant find author-link ???
+                author_tag = soup.find("a", class_="author-link")
+                if author_tag != None:
+                    author_id = author_tag.string.encode("utf-8")
+                    author_url = "http://www.zhihu.com" + author_tag["href"]
+                    author = User(author_url, author_id)
             return author
 
     def get_upvote(self):
@@ -413,7 +430,7 @@ class Answer:
         else:
             if self.soup == None:
                 self.parser()
-            #???
+            
             soup = BeautifulSoup(self.soup.encode("utf-8"), "lxml")
             answer = soup.find("div", class_="zm-editable-content clearfix")
             soup.body.extract()
@@ -431,6 +448,19 @@ class Answer:
             content = soup
             self.content = content
             return content
+
+    def to_html(self):
+        content = self.get_content()
+        if self.get_author().get_user_id() == "匿名用户":
+            file_name = self.get_question().get_title() + ".html"
+        else:
+            file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
+
+        #file_name = self.get_author().get_user_id() + ".html"
+        #print file_name
+        f = open(file_name, "wt")
+        f.write(str(content))
+        f.close()
 
     def to_txt(self):
 
@@ -495,18 +525,6 @@ class Answer:
             f.write("作者: " + self.get_author().get_user_id() + "  赞同: " + str(self.get_upvote()) + "\n\n")
             f.write(body.get_text().encode("utf-8"))
             f.write("\n" + "原链接: " + self.answer_url)
-        f.close()
-
-    def to_html(self):
-        content = self.get_content()
-        if self.get_author().get_user_id() == "匿名用户":
-            file_name = self.get_question().get_title() + "回答.html"
-        else:
-            file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.html"
-            f = open(file_name, "wt")
-        # print file_name
-        f = open(file_name, "wt")
-        f.write(str(content))
         f.close()
 
     def to_md(self):

@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-import requests
-from bs4 import BeautifulSoup
 import urllib
-import re, random, platform
+import re, random, platform, logging
 from time import sleep
 # module
 from auth import Auth
-from log import Logging
+# requirements
+import requests
+from bs4 import BeautifulSoup
 
 # Setting Logging
-Logging.flag = True
+logger = logging.getLogger()
 
 headers = {
     'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
@@ -29,7 +29,7 @@ class Zhihu:
     def login(self):
         self.auth.login()
         if self.auth.islogin() != True:
-            Logging.error(u"你的身份信息已经失效，请重新生成身份信息( `python auth.py` )。")
+            logger.error(u"你的身份信息已经失效，请重新生成身份信息( `python auth.py` )。")
             raise Exception("无权限(403)")
     
     def get_requests(self):
@@ -244,31 +244,30 @@ class Collection:
             yield
         else:
             for answer in answer_list:
+                
                 if not answer.find("p", class_="note"):
-                    question_link = answer.find("h2")
-                    if question_link != None:
-                        question_url = "http://www.zhihu.com" + question_link.a["href"]
-                        question_title = question_link.a.string.encode("utf-8")
-                    question = Question(question_url, self.requests, question_title)
+                    # judge if answer or post by data-type
+                    if answer['data-type'] == 'Answer':
+                        question_link = answer.find("h2")
+                        if question_link != None:
+                            question_url = "http://www.zhihu.com" + question_link.a["href"]
+                            question_title = question_link.a.string.encode("utf-8")
+                        question = Question(question_url, self.requests, question_title)
 
-                    answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
-                        "href"]
-                    print answer_url
+                        answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
+                            "href"]
+                        print answer_url
 
-                    author = None
-                    # if answer.find("div", class_="zm-item-answer-author-info").get_text(strip='\n') == u"匿名用户":
-                    #     # author_id = "匿名用户"author-link-line
-                    #     author_url = None
-                    #     author = User(author_url)
-                    # else:
-                    #     # issue: some items cant find author-link ???
-                    #     author_tag = answer.find("a", class_="author-link")
-                    #     if author_tag != None:
-                    #         author_id = author_tag.string.encode("utf-8")
-                    #         author_url = "http://www.zhihu.com" + author_tag["href"]
-                    #         author = User(author_url, author_id)
+                        author = None
+                        yield Answer(answer_url, self.requests, author, question)
                     
-                    yield Answer(answer_url, self.requests, author, question)
+                    elif answer['data-type'] == 'Post':
+                        post_link = answer.find("h2")
+                        if post_link != None:
+                            post_url = post_link.a["href"]
+
+                            print post_url
+                            yield Post(post_url)
 
     def get_all_answers(self):
         i = 1
@@ -276,7 +275,207 @@ class Collection:
         while True:
             return self.get_answers(i)
             i = i + 1
-            
+
+class Post:
+    url = None
+    meta = None
+    slug = None
+
+    def __init__(self, url):
+
+        if not re.compile(r"(http|https)://zhuanlan.zhihu.com/p/\d{8}").match(url):
+            raise ValueError("\"" + url + "\"" + " : it isn't a question url.")
+        else:
+            self.url = url
+            self.slug = re.compile(r"(http|https)://zhuanlan.zhihu.com/p/(\d{8})").match(url).group(2)
+
+    def parser(self):
+        headers = {
+            'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
+            'Host': "zhuanlan.zhihu.com",
+            'Accept': "application/json, text/plain, */*"
+        }
+        r = requests.get('https://zhuanlan.zhihu.com/api/posts/' + self.slug, headers=headers, verify=False)
+        print 'https://zhuanlan.zhihu.com/api/posts/' + self.slug
+        self.meta = r.json()
+
+    def get_title(self):
+        if hasattr(self, "title"):
+            if platform.system() == 'Windows':
+                title = self.title.decode('utf-8').encode('gbk')
+                return title
+            else:
+                return self.title
+        else:
+            if self.meta == None:
+                self.parser()
+            meta = self.meta
+            title = meta['title']
+            self.title = title
+            if platform.system() == 'Windows':
+                title = title.decode('utf-8').encode('gbk')
+                return title
+            else:
+                return title
+
+    def get_content(self):
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        content = meta['content']
+        if platform.system() == 'Windows':
+            content = content.decode('utf-8').encode('gbk')
+            return content
+        else:
+            return content
+    
+    def get_author(self):
+        if hasattr(self, "author"):
+            return self.author
+        else:
+            if self.meta == None:
+                self.parser()
+            meta = self.meta
+            author_tag = meta['author']
+            author = User(author_tag['profileUrl'],author_tag['slug'])
+            return author
+
+    def get_column(self):
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        column_url = 'https://zhuanlan.zhihu.com/' + meta['column']['slug']
+        return Column(column_url, meta['column']['slug'])
+
+    def get_likes(self):
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        return int(meta["likesCount"])
+
+    def get_topics(self):
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        topic_list = []
+        for topic in meta['topics']:
+            topic_list.append(topic['name'])
+        return topic_list
+
+    def to_json(self):
+        f = open(self.get_title() + ".json", "wt")
+        f.write(self.meta)
+        f.close()
+
+    def to_html(self):
+        content = self.get_content()
+        if self.get_author().get_user_id() == "匿名用户":
+            file_name = self.get_title() + ".html"
+        else:
+            file_name = self.get_title() + "--" + self.get_author().get_user_id() + ".html"
+
+        #file_name = self.get_author().get_user_id() + ".html"
+        #print file_name
+        f = open(file_name, "wt")
+        f.write(str(content))
+        f.close()
+      
+class Column:
+    url = None
+    meta = None
+
+    def __init__(self, url, slug=None):
+
+        if not re.compile(r"(http|https)://zhuanlan.zhihu.com/([0-9a-zA-Z]+)").match(url):
+            raise ValueError("\"" + url + "\"" + " : it isn't a question url.")
+        else:
+            self.url = url
+            if slug == None:
+                self.slug = re.compile(r"(http|https)://zhuanlan.zhihu.com/([0-9a-zA-Z]+)").match(url).group(2)
+            else:
+                self.slug = slug
+
+    def parser(self):
+        headers = {
+            'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
+            'Host': "zhuanlan.zhihu.com",
+            'Accept': "application/json, text/plain, */*"
+        }
+        r = requests.get('https://zhuanlan.zhihu.com/api/columns/' + self.slug, headers=headers, verify=False)
+        self.meta = r.json()
+
+    def get_title(self):
+        if hasattr(self,"title"):
+            if platform.system() == 'Windows':
+                title =  self.title.decode('utf-8').encode('gbk')
+                return title
+            else:
+                return self.title
+        else:
+            if self.meta == None:
+                self.parser()
+            meta = self.meta
+            title = meta['name']
+            self.title = title
+            if platform.system() == 'Windows':
+                title = title.decode('utf-8').encode('gbk')
+                return title
+            else:
+                return title
+
+    def get_description(self):
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        description = meta['description']
+        if platform.system() == 'Windows':
+            description = description.decode('utf-8').encode('gbk')
+            return description
+        else:
+            return description
+
+    def get_followers_num(self):
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        followers_num = int(meta['followersCount'])
+        return followers_num
+
+    def get_posts_num(self):
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        posts_num = int(meta['postsCount'])
+        return posts_num
+
+    def get_creator(self):
+        if hasattr(self, "creator"):
+            return self.creator
+        else:
+            if self.meta == None:
+                self.parser()
+            meta = self.meta
+            creator_tag = meta['creator']
+            creator = User(creator_tag['profileUrl'],creator_tag['slug'])
+            return creator
+
+    def get_all_posts(self):
+        posts_num = self.get_posts_num()
+        if posts_num == 0:
+            print "No posts."
+            return
+            yield
+        else:
+            for i in xrange((posts_num - 1) / 20 + 1):
+                parm = {'limit': 20, 'offset': 20*i}
+                url = 'https://zhuanlan.zhihu.com/api/columns/' + self.slug + '/posts'
+                r = requests.get(url, params=parm, headers=headers, verify=False)
+                posts_list = r.json()
+                for p in posts_list:
+                    post_url = 'https://zhuanlan.zhihu.com/p/' + str(p['slug'])
+                    yield Post(post_url)
+
+
 class Question:
     soup = None
 
@@ -353,6 +552,11 @@ class Question:
             topics.append(topic)
         return topics
 
+    def get_visit_times(self):
+        if self.soup == None:
+            self.parser()
+        soup = self.soup
+        return int(soup.find("meta", itemprop="visitsCount")["content"])
 
 class Answer:
     soup = None
@@ -400,7 +604,7 @@ class Answer:
                 author_url = None
                 author = User(author_url)
             else:
-                # issue: some items cant find author-link ???
+                # issue: some items cant find author-link esp in windows ???
                 author_tag = soup.find("a", class_="author-link")
                 if author_tag != None:
                     author_id = author_tag.string.encode("utf-8")
@@ -640,6 +844,7 @@ class Answer:
 def main():
     user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     for collection in user.get_collections():
+        # make collection dir
         for answer in collection.get_all_answers():
             answer.to_html()
     

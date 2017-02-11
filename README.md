@@ -5,7 +5,10 @@ https://github.com/geekan/scrapy-examples
 
 ## zhihu
 
-回答、图片
+回答、图片(另存)
+
+python继承
+爬虫的容错性（自动跳过）
 
 https://github.com/xpisme/scrapy_zhihu
 https://github.com/jwzh222/python-scrapy-zhihu

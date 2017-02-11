@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 # Build-in / Std
-import os, sys, time, platform, random
+import os, sys, time, platform, random, logging
 import re, json, cookielib
 from getpass import getpass
 
@@ -13,24 +13,25 @@ from ConfigParser import ConfigParser
 
 # requirements
 import requests
-from log import Logging
+
+logger = logging.getLogger()
 
 class LoginPasswordError(Exception):
     def __init__(self, message):
         if type(message) != type("") or message == "": self.message = u"帐号密码错误"
         else: self.message = message
-        Logging.error(self.message)
+        logger.error(self.message)
 
 class NetworkError(Exception):
     def __init__(self, message):
         if type(message) != type("") or message == "": self.message = u"网络异常"
         else: self.message = message
-        Logging.error(self.message)
+        logger.error(self.message)
 class AccountError(Exception):
     def __init__(self, message):
         if type(message) != type("") or message == "": self.message = u"帐号类型错误"
         else: self.message = message
-        Logging.error(self.message)
+        logger.error(self.message)
 
 class Auth:
     def __init__(self):
@@ -54,19 +55,19 @@ class Auth:
         """
             System platform: https://docs.python.org/2/library/platform.html
         """
-        Logging.info(u"正在调用外部程序渲染验证码 ... ")
+        logger.info(u"正在调用外部程序渲染验证码 ... ")
         if platform.system() == "Linux":
-            Logging.info(u"Command: xdg-open %s &" % image_name )
+            logger.info(u"Command: xdg-open %s &" % image_name )
             os.system("xdg-open %s &" % image_name )
         elif platform.system() == "Darwin":
-            Logging.info(u"Command: open %s &" % image_name )
+            logger.info(u"Command: open %s &" % image_name )
             os.system("open %s &" % image_name )
         elif platform.system() in ("SunOS", "FreeBSD", "Unix", "OpenBSD", "NetBSD"):
             os.system("open %s &" % image_name )
         elif platform.system() == "Windows":
             os.system("%s" % image_name )
         else:
-            Logging.info(u"我们无法探测你的作业系统，请自行打开验证码 %s 文件，并输入验证码。" % os.path.join(os.getcwd(), image_name) )
+            logger.info(u"我们无法探测你的作业系统，请自行打开验证码 %s 文件，并输入验证码。" % os.path.join(os.getcwd(), image_name) )
 
         sys.stdout.write(termcolor.colored(u"请输入验证码: ", "cyan") )
         captcha_code = raw_input( )
@@ -79,7 +80,7 @@ class Auth:
             raise NetworkError(u"验证码请求失败")
         results = re.compile(r"\<input\stype=\"hidden\"\sname=\"_xsrf\"\svalue=\"(\S+)\"", re.DOTALL).findall(r.text)
         if len(results) < 1:
-            Logging.info(u"提取XSRF 代码失败" )
+            logger.info(u"提取XSRF 代码失败" )
             return None
         return results[0]
 
@@ -120,21 +121,21 @@ class Auth:
                 # 修正  justkg 提出的问题: https://github.com/egrcc/zhihu-python/issues/30
                 result = json.loads(r.content)
             except Exception as e:
-                Logging.error(u"JSON解析失败！")
-                Logging.debug(e)
-                Logging.debug(r.content)
+                logger.error(u"JSON解析失败！")
+                logger.debug(e)
+                logger.debug(r.content)
                 result = {}
             if result["r"] == 0:
-                Logging.success(u"登录成功！" )
+                logger.success(u"登录成功！" )
                 return {"result": True}
             elif result["r"] == 1:
-                Logging.success(u"登录失败！" )
+                logger.success(u"登录失败！" )
                 return {"error": {"code": int(result['errcode']), "message": result['msg'], "data": result['data'] } }
             else:
-                Logging.warn(u"表单上传出现未知错误: \n \t %s )" % ( str(result) ) )
+                logger.warn(u"表单上传出现未知错误: \n \t %s )" % ( str(result) ) )
                 return {"error": {"code": -1, "message": u"unknown error"} }
         else:
-            Logging.warn(u"无法解析服务器的响应内容: \n \t %s " % r.text )
+            logger.warn(u"无法解析服务器的响应内容: \n \t %s " % r.text )
             return {"error": {"code": -2, "message": u"parse error"} }
 
 
@@ -149,29 +150,29 @@ class Auth:
         elif status_code == 200:
             return True
         else:
-            Logging.warn(u"网络故障")
+            logger.warn(u"网络故障")
             return None
 
 
     def read_account_from_config_file(self, config_file="config.ini"):
         cf = ConfigParser()
         if os.path.exists(config_file) and os.path.isfile(config_file):
-            Logging.info(u"正在加载配置文件 ...")
+            logger.info(u"正在加载配置文件 ...")
             cf.read(config_file)
 
             email = cf.get("info", "email")
             password = cf.get("info", "password")
             if email == "" or password == "":
-                Logging.warn(u"帐号信息无效")
+                logger.warn(u"帐号信息无效")
                 return (None, None)
             else: return (email, password)
         else:
-            Logging.error(u"配置文件加载失败！")
+            logger.error(u"配置文件加载失败！")
             return (None, None)
 
     def login(self, account=None, password=None):
         if self.islogin() == True:
-            Logging.success(u"你已经登录过咯")
+            logger.success(u"你已经登录过咯")
             return True
 
         if account == None:
@@ -192,18 +193,18 @@ class Auth:
         if "error" in result:
             if result["error"]['code'] == 1991829:
                 # 验证码错误
-                Logging.error(u"验证码输入错误，请准备重新输入。" )
+                logger.error(u"验证码输入错误，请准备重新输入。" )
                 return self.login()
             elif result["error"]['code'] == 100005:
                 # 密码错误
-                Logging.error(u"密码输入错误，请准备重新输入。" )
+                logger.error(u"密码输入错误，请准备重新输入。" )
                 return self.login()
             else:
-                Logging.warn(u"unknown error." )
+                logger.warn(u"unknown error." )
                 return False
         elif "result" in result and result['result'] == True:
             # 登录成功
-            Logging.success(u"登录成功！" )
+            logger.success(u"登录成功！" )
             self.requests.cookies.save()
             return True
 

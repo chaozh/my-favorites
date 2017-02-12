@@ -38,6 +38,14 @@ class Zhihu:
     def get_auth(self):
         return self.auth
 
+class Base:
+    def saveImg(self,imageURL,fileName):
+        u = urllib.urlopen(imageURL)
+        data = u.read()
+        f = open(fileName, 'wb')
+        f.write(data)
+        f.close()
+
 class User:
     user_url = None
     # session = None
@@ -377,7 +385,14 @@ class Post:
         #file_name = self.get_author().get_user_id() + ".html"
         #print file_name
         f = open(file_name, "wt")
-        f.write(str(content))
+        f.write(content)
+        f.close()
+
+    def saveImg(self,imageURL,fileName):
+        u = urllib.urlopen(imageURL)
+        data = u.read()
+        f = open(fileName, 'wb')
+        f.write(data)
         f.close()
       
 class Column:
@@ -652,6 +667,13 @@ class Answer:
             content = soup
             self.content = content
             return content
+
+    def saveImg(self,imageURL,fileName):
+        u = urllib.urlopen(imageURL)
+        data = u.read()
+        f = open(fileName, 'wb')
+        f.write(data)
+        f.close()
 
     def to_html(self):
         content = self.get_content()

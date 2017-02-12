@@ -5,8 +5,10 @@ https://github.com/geekan/scrapy-examples
 
 ## zhihu
 
-回答、图片(另存)
+回答、图片
 
+图片另存
+数据库存储
 python继承
 爬虫的容错性（自动跳过）
 

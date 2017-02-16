@@ -281,7 +281,44 @@ class Collection:
         i = 1
         # deal with yield
         while True:
-            return self.get_answers(i)
+            if i == 1:
+                if self.soup == None:
+                    self.parser()
+                soup = self.soup
+            else:
+                r = self.requests.get(self.url + "?page=" + str(i), headers=headers, verify=False)
+                soup = BeautifulSoup(r.content, "lxml")
+                
+            answer_list = soup.find_all("div", class_="zm-item")
+
+            if len(answer_list) == 0:
+                return
+                yield
+            else:
+                for answer in answer_list:
+                    if not answer.find("p", class_="note"):
+                        # judge if answer or post by data-type
+                        if answer['data-type'] == 'Answer':
+                            question_link = answer.find("h2")
+                            if question_link != None:
+                                question_url = "http://www.zhihu.com" + question_link.a["href"]
+                                question_title = question_link.a.string.encode("utf-8")
+                            question = Question(question_url, self.requests, question_title)
+
+                            answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
+                                "href"]
+                            print answer_url
+
+                            author = None
+                            yield Answer(answer_url, self.requests, author, question)
+                        
+                        elif answer['data-type'] == 'Post':
+                            post_link = answer.find("h2")
+                            if post_link != None:
+                                post_url = post_link.a["href"]
+
+                                print post_url
+                                yield Post(post_url)
             i = i + 1
 
 class Post:

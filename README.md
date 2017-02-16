@@ -8,9 +8,14 @@ https://github.com/geekan/scrapy-examples
 回答、图片
 
 图片另存
+
 数据库存储
+
 python继承
+
 爬虫的容错性（自动跳过）
+
+http://cuiqingcai.com/1319.html
 
 https://github.com/xpisme/scrapy_zhihu
 https://github.com/jwzh222/python-scrapy-zhihu

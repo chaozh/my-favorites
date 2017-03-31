@@ -5,7 +5,7 @@ import urllib
 import re, random, platform, logging
 from time import sleep
 # module
-from auth import Auth
+# from auth import Auth
 # requirements
 import requests
 from bs4 import BeautifulSoup
@@ -54,7 +54,8 @@ class User:
     def __init__(self, user_url, user_id=None):
         if user_url == None:
             self.user_id = "匿名用户"
-        elif user_url.startswith('www.zhihu.com/people', user_url.index('//') + 2) == False:
+        elif user_url.startswith('www.zhihu.com/people', user_url.index('//') + 2) == False \
+        and user_url.startswith('www.zhihu.com/org', user_url.index('//') + 2) == False:
             raise ValueError("\"" + user_url + "\"" + " : it isn't a user url.")
         else:
             self.user_url = user_url
@@ -162,6 +163,7 @@ class User:
             if self.soup == None:
                 self.parser()
             soup = self.soup
+            # print soup.find_all("span", class_="Tabs-meta")
             collections_num = int(soup.find_all("span", class_="Tabs-meta")[3].string)
             return collections_num
 
@@ -358,7 +360,7 @@ class Post:
             title = meta['title']
             self.title = title
             if platform.system() == 'Windows':
-                title = title.decode('utf-8').encode('gbk')
+                # title = title.encode('utf-8')
                 return title
             else:
                 return title
@@ -369,7 +371,7 @@ class Post:
         meta = self.meta
         content = meta['content']
         if platform.system() == 'Windows':
-            content = content.decode('utf-8').encode('gbk')
+            content = content.encode('utf-8')
             return content
         else:
             return content
@@ -459,7 +461,7 @@ class Column:
     def get_title(self):
         if hasattr(self,"title"):
             if platform.system() == 'Windows':
-                title =  self.title.decode('utf-8').encode('gbk')
+                title =  self.title #.decode('utf-8').encode('gbk')
                 return title
             else:
                 return self.title
@@ -470,7 +472,7 @@ class Column:
             title = meta['name']
             self.title = title
             if platform.system() == 'Windows':
-                title = title.decode('utf-8').encode('gbk')
+                # title = title.decode('utf-8').encode('gbk')
                 return title
             else:
                 return title
@@ -652,16 +654,19 @@ class Answer:
                 self.parser()
             soup = self.soup
             author = None
-            if soup.find("div", class_="zm-item-answer-author-info").get_text(strip='\n') == u"匿名用户":
-                author_url = None
-                author = User(author_url)
-            else:
-                # issue: some items cant find author-link esp in windows ???
-                author_tag = soup.find("a", class_="author-link")
-                if author_tag != None:
+            # @TODO: new style changes here
+            # author_tag = soup.find("div", class_="zm-item-answer-author-info") or soup.find("div", class_="AuthorInfo")
+            # issue: some items cant find author-link esp in windows ???
+            author_tag = soup.find("a", class_="author-link") or soup.find("div", class_="AuthorInfo-name").find("a", class_="UserLink-link")
+            if author_tag != None:
+                if author_tag.get_text(strip='\n') == u"匿名用户":
+                    author_url = None
+                    author = User(author_url)
+                else:
                     author_id = author_tag.string.encode("utf-8")
                     author_url = "http://www.zhihu.com" + author_tag["href"]
                     author = User(author_url, author_id)
+            
             return author
 
     def get_upvote(self):
@@ -688,7 +693,10 @@ class Answer:
                 self.parser()
             
             soup = BeautifulSoup(self.soup.encode("utf-8"), "lxml")
-            answer = soup.find("div", class_="zm-editable-content clearfix")
+            # @TODO: new style changes here
+            answer = soup.find("div", class_="zm-editable-content clearfix") or soup.find("div", class_="RichContent-inner")
+            # logger.debug(answer)
+
             soup.body.extract()
             soup.head.insert_after(soup.new_tag("body", **{'class': 'zhi'}))
             soup.body.append(answer)
@@ -717,9 +725,8 @@ class Answer:
         if self.get_author().get_user_id() == "匿名用户":
             file_name = self.get_question().get_title() + ".html"
         else:
-            file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
-
-        #file_name = self.get_author().get_user_id() + ".html"
+            #file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
+            file_name = self.get_author().get_user_id() + ".html"
         #print file_name
         f = open(file_name, "wt")
         f.write(str(content))
@@ -902,6 +909,8 @@ class Answer:
 
 def main():
     user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
+    #a = Answer('https://www.zhihu.com/question/47883186/answer/151846965', requests)
+    #a.to_html()
     for collection in user.get_collections():
         # make collection dir
         for answer in collection.get_all_answers():

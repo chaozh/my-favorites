@@ -2,7 +2,7 @@
 #-*- coding:utf-8 -*-
 
 import urllib
-import re, random, platform, logging
+import os, re, random, platform, logging
 from time import sleep
 # module
 # from auth import Auth
@@ -304,11 +304,12 @@ class Collection:
                             question_link = answer.find("h2")
                             if question_link != None:
                                 question_url = "http://www.zhihu.com" + question_link.a["href"]
-                                question_title = question_link.a.string.encode("utf-8")
+                                question_title = question_link.a.string[:-1].encode("utf-8")
+                            
                             question = Question(question_url, self.requests, question_title)
-
                             answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
                                 "href"]
+
                             print answer_url
 
                             author = None
@@ -347,23 +348,17 @@ class Post:
         self.meta = r.json()
 
     def get_title(self):
-        if hasattr(self, "title"):
-            if platform.system() == 'Windows':
-                title = self.title.decode('utf-8').encode('gbk')
-                return title
-            else:
-                return self.title
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        title = meta['title']
+        self.title = title
+        if platform.system() == 'Windows':
+            # FIXME
+            title = self.title.encode('gbk')
+            return title
         else:
-            if self.meta == None:
-                self.parser()
-            meta = self.meta
-            title = meta['title']
-            self.title = title
-            if platform.system() == 'Windows':
-                # title = title.encode('utf-8')
-                return title
-            else:
-                return title
+            return title
 
     def get_content(self):
         if self.meta == None:
@@ -384,7 +379,13 @@ class Post:
                 self.parser()
             meta = self.meta
             author_tag = meta['author']
-            author = User(author_tag['profileUrl'],author_tag['slug'])
+
+            if platform.system() == 'Windows':
+                author_id = author_tag['name'].encode('utf-8')
+            else:
+                author_id = author_tag['name']
+
+            author = User(author_tag['profileUrl'], author_id)
             return author
 
     def get_column(self):
@@ -414,15 +415,15 @@ class Post:
         f.write(self.meta)
         f.close()
 
-    def to_html(self):
+    def to_html(self, path=None):
         content = self.get_content()
         if self.get_author().get_user_id() == "匿名用户":
             file_name = self.get_title() + ".html"
         else:
             file_name = self.get_title() + "--" + self.get_author().get_user_id() + ".html"
-
-        #file_name = self.get_author().get_user_id() + ".html"
+            #file_name = self.get_author().get_user_id() + ".html"
         #print file_name
+        if path != None: file_name = path + '/' + file_name.replace('/','／').replace('\\','＼')
         f = open(file_name, "wt")
         f.write(content)
         f.close()
@@ -720,14 +721,15 @@ class Answer:
         f.write(data)
         f.close()
 
-    def to_html(self):
+    def to_html(self, path=None):
         content = self.get_content()
         if self.get_author().get_user_id() == "匿名用户":
             file_name = self.get_question().get_title() + ".html"
         else:
-            #file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
-            file_name = self.get_author().get_user_id() + ".html"
+            file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
+            #file_name = self.get_author().get_user_id() + ".html"
         #print file_name
+        if path != None: file_name = path + '/' + file_name.replace('/','／').replace('\\','＼')
         f = open(file_name, "wt")
         f.write(str(content))
         f.close()
@@ -913,9 +915,12 @@ def main():
     #a.to_html()
     for collection in user.get_collections():
         # make collection dir
-        for answer in collection.get_all_answers():
-            answer.to_html()
-    
+        path = collection.get_name()
+        if not os.path.exists(path):
+            os.mkdir(path)
 
+        for answer in collection.get_all_answers():
+            answer.to_html(path)
+    
 if __name__=='__main__':
     main()

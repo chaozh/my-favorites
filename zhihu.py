@@ -183,7 +183,9 @@ class User:
                     r = requests.get(collection_url, headers=headers, verify=False)
                     
                     soup = BeautifulSoup(r.content, "lxml")
-                    for collection in soup.find_all("div", class_="FavlistItem-title"):
+                    collection_tags = soup.find_all("div", class_="FavlistItem-title")
+                    
+                    for collection in collection_tags:
                         url = "http://www.zhihu.com" + \
                               collection.find("a")["href"]
                         name = collection.find("a").string.encode("utf-8")
@@ -352,24 +354,20 @@ class Post:
             self.parser()
         meta = self.meta
         title = meta['title']
-        self.title = title
+        title = title.encode('utf-8')
+        #FIXME
         if platform.system() == 'Windows':
-            # FIXME
-            title = self.title.encode('gbk')
-            return title
-        else:
-            return title
+            title = title.replace('/','／').replace('\\','＼')
+            title = title.decode('utf-8').encode('gbk')
+        return title
 
     def get_content(self):
         if self.meta == None:
             self.parser()
         meta = self.meta
         content = meta['content']
-        if platform.system() == 'Windows':
-            content = content.encode('utf-8')
-            return content
-        else:
-            return content
+        content = content.encode('utf-8')
+        return content
     
     def get_author(self):
         if hasattr(self, "author"):
@@ -379,12 +377,7 @@ class Post:
                 self.parser()
             meta = self.meta
             author_tag = meta['author']
-
-            if platform.system() == 'Windows':
-                author_id = author_tag['name'].encode('utf-8')
-            else:
-                author_id = author_tag['name']
-
+            author_id = author_tag['name'].encode('utf-8')
             author = User(author_tag['profileUrl'], author_id)
             return author
 
@@ -423,7 +416,7 @@ class Post:
             file_name = self.get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
         #print file_name
-        if path != None: file_name = path + '/' + file_name.replace('/','／').replace('\\','＼')
+        if path != None: file_name = path + "/" + file_name
         f = open(file_name, "wt")
         f.write(content)
         f.close()
@@ -460,23 +453,16 @@ class Column:
         self.meta = r.json()
 
     def get_title(self):
-        if hasattr(self,"title"):
-            if platform.system() == 'Windows':
-                title =  self.title #.decode('utf-8').encode('gbk')
-                return title
-            else:
-                return self.title
+        if self.meta == None:
+            self.parser()
+        meta = self.meta
+        title = meta['name']
+        self.title = title
+        if platform.system() == 'Windows':
+            title = title.decode('utf-8').encode('gbk')
+            return title
         else:
-            if self.meta == None:
-                self.parser()
-            meta = self.meta
-            title = meta['name']
-            self.title = title
-            if platform.system() == 'Windows':
-                # title = title.decode('utf-8').encode('gbk')
-                return title
-            else:
-                return title
+            return title
 
     def get_description(self):
         if self.meta == None:
@@ -550,22 +536,18 @@ class Question:
 
     def get_title(self):
         if hasattr(self, "title"):
-            if platform.system() == 'Windows':
-                title = self.title.decode('utf-8').encode('gbk')
-                return title
-            else:
-                return self.title
+            title = self.title
         else:
             if self.soup == None:
                 self.parser()
             soup = self.soup
             title = soup.find("h2", class_="zm-item-title").string.encode("utf-8").replace("\n", "")
             self.title = title
-            if platform.system() == 'Windows':
-                title = title.decode('utf-8').encode('gbk')
-                return title
-            else:
-                return title
+        
+        if platform.system() == 'Windows':
+            title = title.decode('utf-8').encode('gbk')
+        title = title.replace('/','／').replace('\\','＼')
+        return title
 
     def get_detail(self):
         if self.soup == None:
@@ -659,14 +641,14 @@ class Answer:
             # author_tag = soup.find("div", class_="zm-item-answer-author-info") or soup.find("div", class_="AuthorInfo")
             # issue: some items cant find author-link esp in windows ???
             author_tag = soup.find("a", class_="author-link") or soup.find("div", class_="AuthorInfo-name").find("a", class_="UserLink-link")
-            if author_tag != None:
-                if author_tag.get_text(strip='\n') == u"匿名用户":
-                    author_url = None
-                    author = User(author_url)
-                else:
-                    author_id = author_tag.string.encode("utf-8")
-                    author_url = "http://www.zhihu.com" + author_tag["href"]
-                    author = User(author_url, author_id)
+            # issue: "anymous user" changes into "zhihu user"
+            if author_tag == None or author_tag.get_text(strip='\n') == u"匿名用户":
+                author_url = None
+                author = User(author_url)
+            else:
+                author_id = author_tag.string.encode("utf-8")
+                author_url = "http://www.zhihu.com" + author_tag["href"]
+                author = User(author_url, author_id)
             
             return author
 
@@ -729,149 +711,9 @@ class Answer:
             file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
         #print file_name
-        if path != None: file_name = path + '/' + file_name.replace('/','／').replace('\\','＼')
+        if path != None: file_name = path + "/" + file_name
         f = open(file_name, "wt")
         f.write(str(content))
-        f.close()
-
-    def to_txt(self):
-
-        content = self.get_content()
-        body = content.find("body")
-        br_list = body.find_all("br")
-        for br in br_list:
-            br.insert_after(content.new_string("\n"))
-        li_list = body.find_all("li")
-        for li in li_list:
-            li.insert_before(content.new_string("\n"))
-
-        if platform.system() == 'Windows':
-            anon_user_id = "匿名用户".decode('utf-8').encode('gbk')
-        else:
-            anon_user_id = "匿名用户"
-        if self.get_author().get_user_id() == anon_user_id:
-            if not os.path.isdir(os.path.join(os.path.join(os.getcwd(), "text"))):
-                os.makedirs(os.path.join(os.path.join(os.getcwd(), "text")))
-            if platform.system() == 'Windows':
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.txt".decode(
-                    'utf-8').encode('gbk')
-            else:
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.txt"
-            print file_name
-            # if platform.system() == 'Windows':
-            # file_name = file_name.decode('utf-8').encode('gbk')
-            # print file_name
-            # else:
-            # print file_name
-            file_name = file_name.replace("/", "'SLASH'")
-            if os.path.exists(os.path.join(os.path.join(os.getcwd(), "text"), file_name)):
-                f = open(os.path.join(os.path.join(os.getcwd(), "text"), file_name), "a")
-                f.write("\n\n")
-            else:
-                f = open(os.path.join(os.path.join(os.getcwd(), "text"), file_name), "a")
-                f.write(self.get_question().get_title() + "\n\n")
-        else:
-            if not os.path.isdir(os.path.join(os.path.join(os.getcwd(), "text"))):
-                os.makedirs(os.path.join(os.path.join(os.getcwd(), "text")))
-            if platform.system() == 'Windows':
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.txt".decode(
-                    'utf-8').encode('gbk')
-            else:
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.txt"
-            print file_name
-            # if platform.system() == 'Windows':
-            # file_name = file_name.decode('utf-8').encode('gbk')
-            # print file_name
-            # else:
-            # print file_name
-            file_name = file_name.replace("/", "'SLASH'")
-            f = open(os.path.join(os.path.join(os.getcwd(), "text"), file_name), "wt")
-            f.write(self.get_question().get_title() + "\n\n")
-        if platform.system() == 'Windows':
-            f.write("作者: ".decode('utf-8').encode('gbk') + self.get_author().get_user_id() + "  赞同: ".decode(
-                'utf-8').encode('gbk') + str(self.get_upvote()) + "\n\n")
-            f.write(body.get_text().encode("gbk"))
-            link_str = "原链接: ".decode('utf-8').encode('gbk')
-            f.write("\n" + link_str + self.answer_url.decode('utf-8').encode('gbk'))
-        else:
-            f.write("作者: " + self.get_author().get_user_id() + "  赞同: " + str(self.get_upvote()) + "\n\n")
-            f.write(body.get_text().encode("utf-8"))
-            f.write("\n" + "原链接: " + self.answer_url)
-        f.close()
-
-    def to_md(self):
-        content = self.get_content()
-        if platform.system() == 'Windows':
-            anon_user_id = "匿名用户".decode('utf-8').encode('gbk')
-        else:
-            anon_user_id = "匿名用户"
-        if self.get_author().get_user_id() == anon_user_id:
-            if platform.system() == 'Windows':
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.md".decode(
-                    'utf-8').encode('gbk')
-            else:
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.md"
-            print file_name
-            # if platform.system() == 'Windows':
-            # file_name = file_name.decode('utf-8').encode('gbk')
-            # print file_name
-            # else:
-            # print file_name
-            file_name = file_name.replace("/", "'SLASH'")
-            if not os.path.isdir(os.path.join(os.path.join(os.getcwd(), "markdown"))):
-                os.makedirs(os.path.join(os.path.join(os.getcwd(), "markdown")))
-            if os.path.exists(os.path.join(os.path.join(os.getcwd(), "markdown"), file_name)):
-                f = open(os.path.join(os.path.join(os.getcwd(), "markdown"), file_name), "a")
-                f.write("\n")
-            else:
-                f = open(os.path.join(os.path.join(os.getcwd(), "markdown"), file_name), "a")
-                f.write("# " + self.get_question().get_title() + "\n")
-        else:
-            if not os.path.isdir(os.path.join(os.path.join(os.getcwd(), "markdown"))):
-                os.makedirs(os.path.join(os.path.join(os.getcwd(), "markdown")))
-            if platform.system() == 'Windows':
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.md".decode(
-                    'utf-8').encode('gbk')
-            else:
-                file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.md"
-            print file_name
-            # file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + "的回答.md"
-            # if platform.system() == 'Windows':
-            # file_name = file_name.decode('utf-8').encode('gbk')
-            # print file_name
-            # else:
-            # print file_name
-            file_name = file_name.replace("/", "'SLASH'")
-            f = open(os.path.join(os.path.join(os.getcwd(), "markdown"), file_name), "wt")
-            f.write("# " + self.get_question().get_title() + "\n")
-        if platform.system() == 'Windows':
-            f.write("### 作者: ".decode('utf-8').encode('gbk') + self.get_author().get_user_id() + "  赞同: ".decode(
-                'utf-8').encode('gbk') + str(self.get_upvote()) + "\n")
-        else:
-            f.write("### 作者: " + self.get_author().get_user_id() + "  赞同: " + str(self.get_upvote()) + "\n")
-        text = html2text.html2text(content.decode('utf-8')).encode("utf-8")
-
-        r = re.findall(r'\*\*(.*?)\*\*', text)
-        for i in r:
-            if i != " ":
-                text = text.replace(i, i.strip())
-
-        r = re.findall(r'_(.*)_', text)
-        for i in r:
-            if i != " ":
-                text = text.replace(i, i.strip())
-
-        r = re.findall(r'!\[\]\((?:.*?)\)', text)
-        for i in r:
-            text = text.replace(i, i + "\n\n")
-
-        if platform.system() == 'Windows':
-            f.write(text.decode('utf-8').encode('gbk'))
-            link_str = "\n---\n#### 原链接: ".decode('utf-8').encode('gbk')
-            f.write(link_str + self.answer_url.decode('utf-8').encode('gbk'))
-        else:
-            f.write(text)
-            f.write("\n---\n#### 原链接: " + self.answer_url)
         f.close()
 
     def get_visit_times(self):
@@ -911,8 +753,10 @@ class Answer:
 
 def main():
     user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
-    #a = Answer('https://www.zhihu.com/question/47883186/answer/151846965', requests)
+    # Answer debug
+    #a = Answer('http://www.zhihu.com/question/25628124/answer/100095019', requests)
     #a.to_html()
+    
     for collection in user.get_collections():
         # make collection dir
         path = collection.get_name()

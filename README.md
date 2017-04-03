@@ -5,21 +5,18 @@ https://github.com/geekan/scrapy-examples
 
 ## zhihu
 
-回答、图片
+需求：存储回答，包含图片，图片需要另存本地，字段分数据库存储
 
-图片另存
+改进：python继承、爬虫的容错性（自动跳过）、匿名判断兼容
 
-数据库存储
-
-python继承
-
-爬虫的容错性（自动跳过）
-
-http://cuiqingcai.com/1319.html
-
+参考：
 https://github.com/xpisme/scrapy_zhihu
 https://github.com/jwzh222/python-scrapy-zhihu
 https://github.com/DsSysWay/zhihu_fav_answer_crawl
+
+学习：
+http://cuiqingcai.com/1319.html bs模块用法
+http://www.jianshu.com/p/5017d8342dd2  python unicode
 
 ## weibo
 

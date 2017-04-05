@@ -181,10 +181,9 @@ class User:
                 for i in xrange((collections_num - 1) / 20 + 1):
                     collection_url = self.user_url + "collections?page=" + str(i + 1)
                     r = requests.get(collection_url, headers=headers, verify=False)
-                    
                     soup = BeautifulSoup(r.content, "lxml")
                     collection_tags = soup.find_all("div", class_="FavlistItem-title")
-                    
+                    #print len(collection_tags)
                     for collection in collection_tags:
                         url = "http://www.zhihu.com" + \
                               collection.find("a")["href"]

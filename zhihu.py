@@ -5,7 +5,7 @@ import urllib
 import os, re, random, platform, logging
 from time import sleep
 # module
-# from auth import Auth
+
 # requirements
 import requests
 from bs4 import BeautifulSoup
@@ -244,6 +244,7 @@ class Collection:
             if self.soup == None:
                 self.parser()
             soup = self.soup
+            print soup
         else:
             r = self.requests.get(self.url + "?page=" + str(pageNo), headers=headers, verify=False)
             soup = BeautifulSoup(r.content, "lxml")
@@ -288,12 +289,13 @@ class Collection:
                 if self.soup == None:
                     self.parser()
                 soup = self.soup
+                print soup
             else:
                 r = self.requests.get(self.url + "?page=" + str(i), headers=headers, verify=False)
                 soup = BeautifulSoup(r.content, "lxml")
                 
             answer_list = soup.find_all("div", class_="zm-item")
-
+            print i,len(answer_list)
             if len(answer_list) == 0:
                 return
                 yield
@@ -419,13 +421,6 @@ class Post:
         f = open(file_name, "wt")
         f.write(content)
         f.close()
-
-    def saveImg(self,imageURL,fileName):
-        u = urllib.urlopen(imageURL)
-        data = u.read()
-        f = open(fileName, 'wb')
-        f.write(data)
-        f.close()
       
 class Column:
     url = None
@@ -543,9 +538,9 @@ class Question:
             title = soup.find("h2", class_="zm-item-title").string.encode("utf-8").replace("\n", "")
             self.title = title
         
+        title = title.replace('/','／').replace('\\','＼')
         if platform.system() == 'Windows':
             title = title.decode('utf-8').encode('gbk')
-        title = title.replace('/','／').replace('\\','＼')
         return title
 
     def get_detail(self):
@@ -622,9 +617,10 @@ class Answer:
             if self.soup == None:
                 self.parser()
             soup = self.soup
-            question_link = soup.find("h2", class_="zm-item-title zm-editable-content").a
+            # New Style Changes
+            question_link = soup.find("a", class_="QuestionMainAction") or soup.find("h2", class_="zm-item-title zm-editable-content").a
             url = "http://www.zhihu.com" + question_link["href"]
-            title = question_link.string.encode("utf-8")
+            title = soup.find("h1", class_="QuestionHeader-title") or question_link.string.encode("utf-8")
             question = Question(url, self.requests, title)
             return question
 
@@ -695,13 +691,6 @@ class Answer:
             self.content = content
             return content
 
-    def saveImg(self,imageURL,fileName):
-        u = urllib.urlopen(imageURL)
-        data = u.read()
-        f = open(fileName, 'wb')
-        f.write(data)
-        f.close()
-
     def to_html(self, path=None):
         content = self.get_content()
         if self.get_author().get_user_id() == "匿名用户":
@@ -749,13 +738,7 @@ class Answer:
                     voter_id = voter_info.a["title"].encode("utf-8")
                     yield User(voter_url, voter_id)
 
-
-def main():
-    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
-    # Answer debug
-    #a = Answer('http://www.zhihu.com/question/25628124/answer/100095019', requests)
-    #a.to_html()
-    
+def user_save(usr):
     for collection in user.get_collections():
         # make collection dir
         path = collection.get_name()
@@ -764,6 +747,23 @@ def main():
 
         for answer in collection.get_all_answers():
             answer.to_html(path)
+
+def collection_save(collection):
+    path = collection.get_name()
+    if not os.path.exists(path):
+        os.mkdir(path)
+    for answer in collection.get_all_answers():
+        answer.to_html(path)
+
+def main():
+    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
+    # Answer debug
+    #a = Answer('https://www.zhihu.com/question/41017412/answer/110945928', requests)
+    #a.to_html()
+    collection = Collection('https://www.zhihu.com/collection/98493615', requests)
+    collection_save(collection)
+    
+    #user_save(user)
     
 if __name__=='__main__':
     main()

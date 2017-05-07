@@ -289,13 +289,13 @@ class Collection:
                 if self.soup == None:
                     self.parser()
                 soup = self.soup
-                print soup
+                # print soup
             else:
                 r = self.requests.get(self.url + "?page=" + str(i), headers=headers, verify=False)
                 soup = BeautifulSoup(r.content, "lxml")
                 
             answer_list = soup.find_all("div", class_="zm-item")
-            print i,len(answer_list)
+            # print i,len(answer_list)
             if len(answer_list) == 0:
                 return
                 yield
@@ -347,7 +347,7 @@ class Post:
             'Accept': "application/json, text/plain, */*"
         }
         r = requests.get('https://zhuanlan.zhihu.com/api/posts/' + self.slug, headers=headers, verify=False)
-        print 'https://zhuanlan.zhihu.com/api/posts/' + self.slug
+        # print 'https://zhuanlan.zhihu.com/api/posts/' + self.slug
         self.meta = r.json()
 
     def get_title(self):
@@ -538,6 +538,7 @@ class Question:
             title = soup.find("h2", class_="zm-item-title").string.encode("utf-8").replace("\n", "")
             self.title = title
         
+        print title
         title = title.replace('/','／').replace('\\','＼')
         if platform.system() == 'Windows':
             title = title.decode('utf-8').encode('gbk')
@@ -617,10 +618,11 @@ class Answer:
             if self.soup == None:
                 self.parser()
             soup = self.soup
+            #print soup
             # New Style Changes
             question_link = soup.find("a", class_="QuestionMainAction") or soup.find("h2", class_="zm-item-title zm-editable-content").a
             url = "http://www.zhihu.com" + question_link["href"]
-            title = soup.find("h1", class_="QuestionHeader-title") or question_link.string.encode("utf-8")
+            title = soup.find("h1", class_="QuestionHeader-title").string.encode("utf-8") or question_link.string.encode("utf-8")
             question = Question(url, self.requests, title)
             return question
 
@@ -635,7 +637,7 @@ class Answer:
             # @TODO: new style changes here
             # author_tag = soup.find("div", class_="zm-item-answer-author-info") or soup.find("div", class_="AuthorInfo")
             # issue: some items cant find author-link esp in windows ???
-            author_tag = soup.find("a", class_="author-link") or soup.find("div", class_="AuthorInfo-name").find("a", class_="UserLink-link")
+            author_tag = soup.find("a", class_="author-link") or soup.find("span", class_="AuthorInfo-name").find("a", class_="UserLink-link")
             # issue: "anymous user" changes into "zhihu user"
             if author_tag == None or author_tag.get_text(strip='\n') == u"匿名用户":
                 author_url = None
@@ -684,6 +686,7 @@ class Answer:
             img_list = soup.find_all("img", class_="origin_image zh-lightbox-thumb lazy")
             for img in img_list:
                 img["src"] = img["data-actualsrc"]
+
             noscript_list = soup.find_all("noscript")
             for noscript in noscript_list:
                 noscript.extract()
@@ -699,6 +702,18 @@ class Answer:
             file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
         #print file_name
+        # deal with all images
+        img_path = 'images'
+        if path != None: img_path = path + "/" + img_path
+        if not os.path.exists(img_path):
+            os.mkdir(img_path)
+        img_list = content.find_all("img")
+        for img in img_list:
+            url = img["src"]
+            name = url.split("/")[-1]
+            urllib.urlretrieve(url, img_path + "/" + name)
+            img["src"] = "images/" + name
+
         if path != None: file_name = path + "/" + file_name
         f = open(file_name, "wt")
         f.write(str(content))
@@ -739,7 +754,7 @@ class Answer:
                     yield User(voter_url, voter_id)
 
 def user_save(usr):
-    for collection in user.get_collections():
+    for collection in usr.get_collections():
         # make collection dir
         path = collection.get_name()
         if not os.path.exists(path):
@@ -756,11 +771,11 @@ def collection_save(collection):
         answer.to_html(path)
 
 def main():
-    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
+    #user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     # Answer debug
-    #a = Answer('https://www.zhihu.com/question/41017412/answer/110945928', requests)
+    #a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
     #a.to_html()
-    collection = Collection('https://www.zhihu.com/collection/98493615', requests)
+    collection = Collection('https://www.zhihu.com/collection/20584511', requests)
     collection_save(collection)
     
     #user_save(user)

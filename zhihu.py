@@ -12,7 +12,14 @@ from bs4 import BeautifulSoup
 
 # Setting Logging
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
+# For console output
+# http://blog.csdn.net/liuchunming033/article/details/39080457
+ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
+logger.addHandler(ch)
+#fh = logging.FileHandler("logger.txt", mode='w')
+#logger.addHandler(fh)
 
 headers = {
     'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
@@ -201,7 +208,7 @@ class Collection:
             raise ValueError("\"" + url + "\"" + " : it isn't a collection url.")
         else:
             self.url = url
-            logger.debug('collection url',url)
+            logger.debug('collection url' + url)
             if name != None:
                 self.name = name
             if creator != None:
@@ -296,7 +303,7 @@ class Collection:
                 soup = BeautifulSoup(r.content, "lxml")
                 
             answer_list = soup.find_all("div", class_="zm-item")
-            logger.debug(i,len(answer_list))
+            logger.debug("%d, %d" % (i, len(answer_list)))
             if len(answer_list) == 0:
                 return
                 yield

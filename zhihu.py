@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 
 # Setting Logging
 logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 
 headers = {
     'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
@@ -69,7 +70,7 @@ class User:
 
     def get_user_id(self):
         if self.user_url == None:
-            # print "I'm anonymous user."
+            logger.info("I'm anonymous user.")
             if platform.system() == 'Windows':
                 return "匿名用户".decode('utf-8').encode('gbk')
             else:
@@ -106,11 +107,11 @@ class User:
         scale_list = [1, 3, 4, 6, 10]
         scale_name = '0s0ml0t000b'
         if self.user_url == None:
-            print "I'm anonymous user."
+            logger.info("I'm anonymous user.")
             return None
         else:
             if scale not in scale_list:
-                print 'Illegal scale.'
+                logger.info('Illegal scale.')
                 return None
             if self.soup == None:
                 self.parser()
@@ -125,7 +126,7 @@ class User:
             (https://github.com/egrcc/zhihu-python/pull/24)
         """
         if self.user_url == None:
-            print "I'm anonymous user."
+            logger.info("I'm anonymous user.")
             return 0
         else:
             if self.soup == None:
@@ -140,7 +141,7 @@ class User:
             增加获取知乎识用户的性别
         """
         if self.user_url == None:
-            print "I'm anonymous user."
+            logger.info("I'm anonymous user.")
             return 'unknown'
         else:
             if self.soup == None:
@@ -157,19 +158,19 @@ class User:
 
     def get_collections_num(self):
         if self.user_url == None:
-            print "I'm anonymous user."
+            logger.info("I'm anonymous user.")
             return 0
         else:
             if self.soup == None:
                 self.parser()
             soup = self.soup
-            # print soup.find_all("span", class_="Tabs-meta")
+            logger.debug(soup.find_all("span", class_="Tabs-meta"))
             collections_num = int(soup.find_all("span", class_="Tabs-meta")[3].string)
             return collections_num
 
     def get_collections(self):
         if self.user_url == None:
-            print "I'm anonymous user."
+            logger.info("I'm anonymous user.")
             return
             yield
         else:
@@ -183,7 +184,7 @@ class User:
                     r = requests.get(collection_url, headers=headers, verify=False)
                     soup = BeautifulSoup(r.content, "lxml")
                     collection_tags = soup.find_all("div", class_="FavlistItem-title")
-                    #print len(collection_tags)
+                    logger.debug(len(collection_tags))
                     for collection in collection_tags:
                         url = "http://www.zhihu.com" + \
                               collection.find("a")["href"]
@@ -200,7 +201,7 @@ class Collection:
             raise ValueError("\"" + url + "\"" + " : it isn't a collection url.")
         else:
             self.url = url
-            print 'collection url',url
+            logger.debug('collection url',url)
             if name != None:
                 self.name = name
             if creator != None:
@@ -244,7 +245,7 @@ class Collection:
             if self.soup == None:
                 self.parser()
             soup = self.soup
-            print soup
+            logger.debug(soup)
         else:
             r = self.requests.get(self.url + "?page=" + str(pageNo), headers=headers, verify=False)
             soup = BeautifulSoup(r.content, "lxml")
@@ -268,7 +269,7 @@ class Collection:
 
                         answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
                             "href"]
-                        print answer_url
+                        logger.debug(answer_url)
 
                         author = None
                         yield Answer(answer_url, self.requests, author, question)
@@ -278,7 +279,7 @@ class Collection:
                         if post_link != None:
                             post_url = post_link.a["href"]
 
-                            print post_url
+                            logger.debug(post_url)
                             yield Post(post_url)
 
     def get_all_answers(self):
@@ -289,13 +290,13 @@ class Collection:
                 if self.soup == None:
                     self.parser()
                 soup = self.soup
-                # print soup
+                logger.debug(soup)
             else:
                 r = self.requests.get(self.url + "?page=" + str(i), headers=headers, verify=False)
                 soup = BeautifulSoup(r.content, "lxml")
                 
             answer_list = soup.find_all("div", class_="zm-item")
-            # print i,len(answer_list)
+            logger.debug(i,len(answer_list))
             if len(answer_list) == 0:
                 return
                 yield
@@ -313,7 +314,7 @@ class Collection:
                             answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
                                 "href"]
 
-                            print answer_url
+                            logger.debug(answer_url)
 
                             author = None
                             yield Answer(answer_url, self.requests, author, question)
@@ -323,7 +324,7 @@ class Collection:
                             if post_link != None:
                                 post_url = post_link.a["href"]
 
-                                print post_url
+                                logger.debug(post_url)
                                 yield Post(post_url)
             i = i + 1
 
@@ -347,7 +348,7 @@ class Post:
             'Accept': "application/json, text/plain, */*"
         }
         r = requests.get('https://zhuanlan.zhihu.com/api/posts/' + self.slug, headers=headers, verify=False)
-        # print 'https://zhuanlan.zhihu.com/api/posts/' + self.slug
+        logger.debug('https://zhuanlan.zhihu.com/api/posts/' + self.slug)
         self.meta = r.json()
 
     def get_title(self):
@@ -416,7 +417,7 @@ class Post:
         else:
             file_name = self.get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
-        #print file_name
+        logger.debug(file_name)
         if path != None: file_name = path + "/" + file_name
         f = open(file_name, "wt")
         f.write(content)
@@ -497,7 +498,7 @@ class Column:
     def get_all_posts(self):
         posts_num = self.get_posts_num()
         if posts_num == 0:
-            print "No posts."
+            logger.info("No posts.")
             return
             yield
         else:
@@ -538,7 +539,7 @@ class Question:
             title = soup.find("h2", class_="zm-item-title").string.encode("utf-8").replace("\n", "")
             self.title = title
         
-        print title
+        logger.debug(title)
         title = title.replace('/','／').replace('\\','＼')
         if platform.system() == 'Windows':
             title = title.decode('utf-8').encode('gbk')
@@ -618,7 +619,7 @@ class Answer:
             if self.soup == None:
                 self.parser()
             soup = self.soup
-            #print soup
+            logger.debug(soup)
             # New Style Changes
             question_link = soup.find("a", class_="QuestionMainAction") or soup.find("h2", class_="zm-item-title zm-editable-content").a
             url = "http://www.zhihu.com" + question_link["href"]
@@ -701,7 +702,7 @@ class Answer:
         else:
             file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
-        #print file_name
+        logger.debug(file_name)
         # deal with all images
         img_path = 'images'
         if path != None: img_path = path + "/" + img_path

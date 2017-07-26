@@ -5,9 +5,9 @@ https://github.com/geekan/scrapy-examples
 
 ## zhihu
 
-需求：存储回答，包含图片，图片需要另存本地，字段分数据库存储
+需求：~~存储回答，包含图片，图片需要另存本地~~，字段分数据库存储，题目中字符兼容
 
-改进：python继承、爬虫的容错性（自动跳过）、匿名判断兼容
+改进：python继承、爬虫的容错性（自动跳过）、~~匿名判断兼容~~
 
 参考：
 https://github.com/xpisme/scrapy_zhihu

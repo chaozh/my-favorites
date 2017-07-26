@@ -321,7 +321,7 @@ class Collection:
                             answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
                                 "href"]
 
-                            logger.debug(answer_url)
+                            logger.warn(answer_url)
 
                             author = None
                             yield Answer(answer_url, self.requests, author, question)
@@ -331,7 +331,7 @@ class Collection:
                             if post_link != None:
                                 post_url = post_link.a["href"]
 
-                                logger.debug(post_url)
+                                logger.info(post_url)
                                 yield Post(post_url)
             i = i + 1
 
@@ -412,13 +412,7 @@ class Post:
             topic_list.append(topic['name'])
         return topic_list
 
-    def to_json(self):
-        f = open(self.get_title() + ".json", "wt")
-        f.write(self.meta)
-        f.close()
-
-    def to_html(self, path=None):
-        content = self.get_content()
+    def get_filename(self, path=None):
         if self.get_author().get_user_id() == "匿名用户":
             file_name = self.get_title() + ".html"
         else:
@@ -426,6 +420,17 @@ class Post:
             #file_name = self.get_author().get_user_id() + ".html"
         logger.debug(file_name)
         if path != None: file_name = path + "/" + file_name
+        return file_name
+
+
+    def to_json(self):
+        f = open(self.get_title() + ".json", "wt")
+        f.write(self.meta)
+        f.close()
+
+    def to_html(self, path=None):
+        content = self.get_content()
+        file_name = self.get_filename(path)
         f = open(file_name, "wt")
         f.write(content)
         f.close()
@@ -702,14 +707,21 @@ class Answer:
             self.content = content
             return content
 
-    def to_html(self, path=None):
-        content = self.get_content()
+    def get_filename(self, path=None):
         if self.get_author().get_user_id() == "匿名用户":
             file_name = self.get_question().get_title() + ".html"
         else:
             file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
         logger.debug(file_name)
+        if path != None: file_name = path + "/" + file_name
+
+        return file_name
+
+
+    def to_html(self, path=None):
+        content = self.get_content()
+        
         # deal with all images
         img_path = 'images'
         if path != None: img_path = path + "/" + img_path
@@ -717,12 +729,13 @@ class Answer:
             os.mkdir(img_path)
         img_list = content.find_all("img")
         for img in img_list:
+            #FIXME: sp deal with symbol
             url = img["src"]
             name = url.split("/")[-1]
             urllib.urlretrieve(url, img_path + "/" + name)
             img["src"] = "images/" + name
 
-        if path != None: file_name = path + "/" + file_name
+        file_name = self.get_filename(path)
         f = open(file_name, "wt")
         f.write(str(content))
         f.close()
@@ -776,14 +789,21 @@ def collection_save(collection):
     if not os.path.exists(path):
         os.mkdir(path)
     for answer in collection.get_all_answers():
-        answer.to_html(path)
+        file_name = answer.get_filename(path)
+        if not os.path.exists(file_name):
+            answer.to_html(path)
+        else:
+            logger.warn(file_name +" already exists")
 
 def main():
     #user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     # Answer debug
     #a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
     #a.to_html()
-    collection = Collection('https://www.zhihu.com/collection/20584511', requests)
+    # Post debug
+    #p = Post('https://zhuanlan.zhihu.com/p/25876351')
+    #p.to_html()
+    collection = Collection('https://www.zhihu.com/collection/40876524', requests)
     collection_save(collection)
     
     #user_save(user)

@@ -366,7 +366,7 @@ class Post:
         title = title.encode('utf-8')
         #FIXME
         if platform.system() == 'Windows':
-            title = title.replace('/','／').replace('\\','＼')
+            title = title.replace('/','／').replace('\\','＼').replace('|', '-')
             title = title.decode('utf-8').encode('gbk')
         return title
 
@@ -732,6 +732,9 @@ class Answer:
             #FIXME: sp deal with symbol
             url = img["src"]
             name = url.split("/")[-1]
+            if name.startswith("equation"):
+                name = "equation" + img["eeimg"]
+
             urllib.urlretrieve(url, img_path + "/" + name)
             img["src"] = "images/" + name
 
@@ -782,7 +785,11 @@ def user_save(usr):
             os.mkdir(path)
 
         for answer in collection.get_all_answers():
-            answer.to_html(path)
+            file_name = answer.get_filename(path)
+            if not os.path.exists(file_name):
+                answer.to_html(path)
+            else:
+                logger.warn(file_name +" already exists")
 
 def collection_save(collection):
     path = collection.get_name()
@@ -798,12 +805,13 @@ def collection_save(collection):
 def main():
     #user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     # Answer debug
+    #a = Answer('http://www.zhihu.com/question/24542658/answer/54158911', requests)
     #a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
     #a.to_html()
     # Post debug
     #p = Post('https://zhuanlan.zhihu.com/p/25876351')
     #p.to_html()
-    collection = Collection('https://www.zhihu.com/collection/40876524', requests)
+    collection = Collection('https://www.zhihu.com/collection/40878489', requests)
     collection_save(collection)
     
     #user_save(user)

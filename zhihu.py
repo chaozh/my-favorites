@@ -204,15 +204,17 @@ class Collection:
     def __init__(self, url, requests, name=None, creator=None):
         self.requests = requests
 
-        if not re.compile(r"(http|https)://www.zhihu.com/collection/\d{8}").match(url):
-            raise ValueError("\"" + url + "\"" + " : it isn't a collection url.")
-        else:
+        m = re.compile(r"(http|https)://www.zhihu.com/collection/(?P<id>\d{8})").match(url)
+        if m:
+            self.id = m.group('id')
             self.url = url
             logger.debug('collection url' + url)
             if name != None:
                 self.name = name
             if creator != None:
                 self.creator = creator
+        else:
+            raise ValueError("\"" + url + "\"" + " : it isn't a collection url.")
         
     def parser(self):
         r = self.requests.get(self.url, headers=headers, verify=False)
@@ -572,17 +574,23 @@ class Question:
         if self.soup == None:
             self.parser()
         soup = self.soup
-        answers_num = 0
-        if soup.find("h3", id="zh-question-answer-num") != None:
-            answers_num = int(soup.find("h3", id="zh-question-answer-num")["data-num"])
+        answers_num = int(soup.find("meta", itemprop="answerCount")["content"])
         return answers_num
 
     def get_followers_num(self):
         if self.soup == None:
             self.parser()
         soup = self.soup
-        followers_num = int(soup.find("div", class_="zg-gray-normal").a.strong.string)
+        #followers_num = int(soup.find("div", class_="zg-gray-normal").a.strong.string)
+        followers_num = int(soup.find("meta", itemprop="zhihu:followerCount")["content"])
         return followers_num
+
+    def get_keywords(self):
+        if self.soup == None:
+            self.parser()
+        soup = self.soup
+        keywords = soup.find("meta", itemprop="keywords")["content"]
+        return keywords
 
     def get_topics(self):
         if self.soup == None:
@@ -601,7 +609,7 @@ class Question:
         if self.soup == None:
             self.parser()
         soup = self.soup
-        return int(soup.find("meta", itemprop="visitsCount")["content"])
+        return int(soup.find("meta", itemprop="zhihu:visitsCount")["content"])
 
 class Answer:
     soup = None
@@ -669,14 +677,7 @@ class Answer:
             if self.soup == None:
                 self.parser()
             soup = self.soup
-            count = soup.find("span", class_="count").string
-            if count[-1] == "K":
-                upvote = int(count[0:(len(count) - 1)]) * 1000
-            elif count[-1] == "W":
-                upvote = int(count[0:(len(count) - 1)]) * 10000
-            else:
-                upvote = int(count)
-            return upvote
+            return int(soup.find("meta", itemprop="upvoteCount")["content"])
 
     def get_content(self):
         if hasattr(self, "content"):

@@ -35,18 +35,26 @@ def main():
                     "q_title":  question.get_title(), 
                     "q_answers_num": question.get_answers_num(),
                     "q_followers_num": question.get_followers_num(),
+                    "q_topics": question.get_topics(),
                     "a_author": author.get_user_id(),
                     "a_upvote": answer.get_upvote(),
                     "a_content": str(answer.get_content())
                 }
             else:
                 column = answer.get_column()
+                if column != None:
+                    q_topics = column.get_topics()
+                    q_followers_num = column.get_followers_num()
+                else:
+                    q_followers_num = 0
+                    q_topics = []
+
                 ans_obj = { 
                     "col_name": collection.get_name(),
                     "a_type": "post",
-                    "q_title":  column.get_title(), 
-                    "q_answers_num": column.get_posts_num(),
-                    "q_followers_num": column.get_followers_num(),
+                    "q_title":  answer.get_title(),
+                    "q_followers_num": q_followers_num,
+                    "q_topics": q_topics,
                     "a_author": author.get_user_id(),
                     "a_upvote": answer.get_likes(),
                     "a_content": answer.get_content()

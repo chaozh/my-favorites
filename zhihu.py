@@ -396,8 +396,11 @@ class Post:
         if self.meta == None:
             self.parser()
         meta = self.meta
-        column_url = 'https://zhuanlan.zhihu.com/' + meta['column']['slug']
-        return Column(column_url, meta['column']['slug'])
+        if meta['column']:
+            column_url = 'https://zhuanlan.zhihu.com/' + meta['column']['slug']
+            return Column(column_url, meta['column']['slug'])
+        else:
+            return None
 
     def get_likes(self):
         if self.meta == None:
@@ -405,14 +408,17 @@ class Post:
         meta = self.meta
         return int(meta["likesCount"])
 
-    def get_topics(self):
+    def get_topics(self, plain=False):
         if self.meta == None:
             self.parser()
         meta = self.meta
         topic_list = []
         for topic in meta['topics']:
             topic_list.append(topic['name'])
-        return topic_list
+        if plain:
+            return topic_list
+        else:
+            return topic_list.join(',')
 
     def get_filename(self, path=None):
         if self.get_author().get_user_id() == "匿名用户":
@@ -585,25 +591,16 @@ class Question:
         followers_num = int(soup.find("meta", itemprop="zhihu:followerCount")["content"])
         return followers_num
 
-    def get_keywords(self):
+    def get_topics(self, plain=False):
         if self.soup == None:
             self.parser()
         soup = self.soup
         keywords = soup.find("meta", itemprop="keywords")["content"]
-        return keywords
-
-    def get_topics(self):
-        if self.soup == None:
-            self.parser()
-        soup = self.soup
-        topic_list = soup.find_all("a", class_="zm-item-tag")
-        topics = []
-        for i in topic_list:
-            topic = i.contents[0].encode("utf-8").replace("\n", "")
-            if platform.system() == 'Windows':
-                topic = topic.decode('utf-8').encode('gbk')
-            topics.append(topic)
-        return topics
+        if plain:
+            return keywords
+        else:
+            topic_list = keywords.split(',')
+            return topic_list
 
     def get_visit_times(self):
         if self.soup == None:
@@ -812,7 +809,7 @@ def main():
     # Post debug
     #p = Post('https://zhuanlan.zhihu.com/p/25876351')
     #p.to_html()
-    collection = Collection('https://www.zhihu.com/collection/40878489', requests)
+    collection = Collection('https://www.zhihu.com/collection/98493615', requests)
     collection_save(collection)
     
     #user_save(user)

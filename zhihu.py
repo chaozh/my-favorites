@@ -396,7 +396,7 @@ class Post:
         if self.meta == None:
             self.parser()
         meta = self.meta
-        if meta['column']:
+        if hasattr(meta, "column"):
             column_url = 'https://zhuanlan.zhihu.com/' + meta['column']['slug']
             return Column(column_url, meta['column']['slug'])
         else:

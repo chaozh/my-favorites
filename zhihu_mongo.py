@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-from zhihu
+import zhihu
 from pymongo import MongoClient
 
 import logging
@@ -28,7 +28,12 @@ def main():
             author = answer.get_author()
             # also deal with post
             if isinstance(answer, zhihu.Answer):
+                # http://www.zhihu.com/question/40044307/answer/139159233
                 question = answer.get_question()
+                # check if exists
+                if col_set.find_one({"q_title": question.get_title()}):
+                    continue
+
                 ans_obj = { 
                     "col_name": collection.get_name(),
                     "a_type": "answer",
@@ -42,6 +47,10 @@ def main():
                 }
             else:
                 column = answer.get_column()
+                # check if exists
+                if col_set.find_one({"q_title": answer.get_title()}):
+                    continue
+
                 if column != None:
                     q_topics = column.get_topics()
                     q_followers_num = column.get_followers_num()

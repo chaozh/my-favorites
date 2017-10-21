@@ -36,7 +36,7 @@ class Zhihu:
 
     def login(self):
         self.auth.login()
-        if self.auth.islogin() != True:
+        if not self.auth.islogin():
             logger.error(u"你的身份信息已经失效，请重新生成身份信息( `python auth.py` )。")
             raise Exception("无权限(403)")
     
@@ -47,7 +47,7 @@ class Zhihu:
         return self.auth
 
 class Base:
-    def saveImg(self,imageURL,fileName):
+    def save_img(self,imageURL,fileName):
         u = urllib.urlopen(imageURL)
         data = u.read()
         f = open(fileName, 'wb')
@@ -60,14 +60,14 @@ class User:
     soup = None
 
     def __init__(self, user_url, user_id=None):
-        if user_url == None:
+        if user_url is None:
             self.user_id = "匿名用户"
         elif user_url.startswith('www.zhihu.com/people', user_url.index('//') + 2) == False \
         and user_url.startswith('www.zhihu.com/org', user_url.index('//') + 2) == False:
             raise ValueError("\"" + user_url + "\"" + " : it isn't a user url.")
         else:
             self.user_url = user_url
-            if user_id != None:
+            if user_id:
                 self.user_id = user_id
 
     def parser(self):
@@ -76,7 +76,7 @@ class User:
         self.soup = soup
 
     def get_user_id(self):
-        if self.user_url == None:
+        if self.user_url is None:
             logger.info("I'm anonymous user.")
             if platform.system() == 'Windows':
                 return "匿名用户".decode('utf-8').encode('gbk')
@@ -89,7 +89,7 @@ class User:
                 else:
                     return self.user_id
             else:
-                if self.soup == None:
+                if self.soup is None:
                     self.parser()
                 soup = self.soup
                 user_id = soup.find("div", class_="title-section ellipsis") \
@@ -113,14 +113,14 @@ class User:
         """
         scale_list = [1, 3, 4, 6, 10]
         scale_name = '0s0ml0t000b'
-        if self.user_url == None:
+        if self.user_url is None:
             logger.info("I'm anonymous user.")
             return None
         else:
             if scale not in scale_list:
                 logger.info('Illegal scale.')
                 return None
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             url = soup.find("img", class_="Avatar Avatar--l")["src"]
@@ -132,11 +132,11 @@ class User:
             增加获取知乎 data-id 的方法来确定标识用户的唯一性 #24
             (https://github.com/egrcc/zhihu-python/pull/24)
         """
-        if self.user_url == None:
+        if self.user_url is None:
             logger.info("I'm anonymous user.")
             return 0
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             data_id = soup.find("button", class_="zg-btn zg-btn-follow zm-rich-follow-btn")['data-id']
@@ -147,11 +147,11 @@ class User:
             By Mukosame (https://github.com/mukosame)
             增加获取知乎识用户的性别
         """
-        if self.user_url == None:
+        if self.user_url is None:
             logger.info("I'm anonymous user.")
             return 'unknown'
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             try:
@@ -164,11 +164,11 @@ class User:
                 return 'unknown'
 
     def get_collections_num(self):
-        if self.user_url == None:
+        if self.user_url is None:
             logger.info("I'm anonymous user.")
             return 0
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             logger.debug(soup.find_all("span", class_="Tabs-meta"))
@@ -176,7 +176,7 @@ class User:
             return collections_num
 
     def get_collections(self):
-        if self.user_url == None:
+        if self.user_url is None:
             logger.info("I'm anonymous user.")
             return
             yield
@@ -209,9 +209,9 @@ class Collection:
             self.id = m.group('id')
             self.url = url
             logger.debug('collection url' + url)
-            if name != None:
+            if name:
                 self.name = name
-            if creator != None:
+            if creator:
                 self.creator = creator
         else:
             raise ValueError("\"" + url + "\"" + " : it isn't a collection url.")
@@ -228,7 +228,7 @@ class Collection:
             else:
                 return self.name
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             self.name = soup.find("h2", id="zh-fav-head-title").string.encode("utf-8").strip()
@@ -240,7 +240,7 @@ class Collection:
         if hasattr(self, 'creator'):
             return self.creator
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             creator_id = soup.find("h2", class_="zm-list-content-title").a.string.encode("utf-8")
@@ -251,7 +251,7 @@ class Collection:
 
     def get_answers(self, pageNo):
         if pageNo == 1:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             logger.debug(soup)
@@ -261,7 +261,7 @@ class Collection:
             
         answer_list = soup.find_all("div", class_="zm-item")
 
-        if len(answer_list) == 0:
+        if not answer_list:
             return
             yield
         else:
@@ -271,7 +271,7 @@ class Collection:
                     # judge if answer or post by data-type
                     if answer['data-type'] == 'Answer':
                         question_link = answer.find("h2")
-                        if question_link != None:
+                        if question_link:
                             question_url = "http://www.zhihu.com" + question_link.a["href"]
                             question_title = question_link.a.string.encode("utf-8")
                         question = Question(question_url, self.requests, question_title)
@@ -285,7 +285,7 @@ class Collection:
                     
                     elif answer['data-type'] == 'Post':
                         post_link = answer.find("h2")
-                        if post_link != None:
+                        if post_link:
                             post_url = post_link.a["href"]
 
                             logger.debug(post_url)
@@ -296,7 +296,7 @@ class Collection:
         # deal with yield
         while True:
             if i == 1:
-                if self.soup == None:
+                if self.soup is None:
                     self.parser()
                 soup = self.soup
                 logger.debug(soup)
@@ -306,7 +306,7 @@ class Collection:
                 
             answer_list = soup.find_all("div", class_="zm-item")
             logger.debug("%d, %d" % (i, len(answer_list)))
-            if len(answer_list) == 0:
+            if not answer_list:
                 return
                 yield
             else:
@@ -315,7 +315,7 @@ class Collection:
                         # judge if answer or post by data-type
                         if answer['data-type'] == 'Answer':
                             question_link = answer.find("h2")
-                            if question_link != None:
+                            if question_link:
                                 question_url = "http://www.zhihu.com" + question_link.a["href"]
                                 question_title = question_link.a.string[:-1].encode("utf-8")
                             
@@ -330,7 +330,7 @@ class Collection:
                         
                         elif answer['data-type'] == 'Post':
                             post_link = answer.find("h2")
-                            if post_link != None:
+                            if post_link:
                                 post_url = post_link.a["href"]
 
                                 logger.info(post_url)
@@ -361,7 +361,7 @@ class Post:
         self.meta = r.json()
 
     def get_title(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         title = meta['title']
@@ -373,7 +373,7 @@ class Post:
         return title
 
     def get_content(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         content = meta['content']
@@ -384,7 +384,7 @@ class Post:
         if hasattr(self, "author"):
             return self.author
         else:
-            if self.meta == None:
+            if self.meta is None:
                 self.parser()
             meta = self.meta
             author_tag = meta['author']
@@ -393,7 +393,7 @@ class Post:
             return author
 
     def get_column(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         if hasattr(meta, "column"):
@@ -403,13 +403,13 @@ class Post:
             return None
 
     def get_likes(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         return int(meta["likesCount"])
 
     def get_topics(self, plain=False):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         topic_list = []
@@ -427,7 +427,8 @@ class Post:
             file_name = self.get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
         logger.debug(file_name)
-        if path != None: file_name = path + "/" + file_name
+        if path: 
+            file_name = path + "/" + file_name
         return file_name
 
 
@@ -453,7 +454,7 @@ class Column:
             raise ValueError("\"" + url + "\"" + " : it isn't a question url.")
         else:
             self.url = url
-            if slug == None:
+            if slug is None:
                 self.slug = re.compile(r"(http|https)://zhuanlan.zhihu.com/([0-9a-zA-Z]+)").match(url).group(2)
             else:
                 self.slug = slug
@@ -468,7 +469,7 @@ class Column:
         self.meta = r.json()
 
     def get_title(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         title = meta['name']
@@ -480,7 +481,7 @@ class Column:
             return title
 
     def get_description(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         description = meta['description']
@@ -491,14 +492,14 @@ class Column:
             return description
 
     def get_followers_num(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         followers_num = int(meta['followersCount'])
         return followers_num
 
     def get_posts_num(self):
-        if self.meta == None:
+        if self.meta is None:
             self.parser()
         meta = self.meta
         posts_num = int(meta['postsCount'])
@@ -508,7 +509,7 @@ class Column:
         if hasattr(self, "creator"):
             return self.creator
         else:
-            if self.meta == None:
+            if self.meta is None:
                 self.parser()
             meta = self.meta
             creator_tag = meta['creator']
@@ -543,7 +544,7 @@ class Question:
         else:
             self.url = url
 
-        if title != None: self.title = title
+        if title: self.title = title
 
     def parser(self):
         r = self.requests.get(self.url,headers=headers, verify=False)
@@ -553,7 +554,7 @@ class Question:
         if hasattr(self, "title"):
             title = self.title
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             title = soup.find("h2", class_="zm-item-title").string.encode("utf-8").replace("\n", "")
@@ -566,7 +567,7 @@ class Question:
         return title
 
     def get_detail(self):
-        if self.soup == None:
+        if self.soup is None:
             self.parser()
         soup = self.soup
         detail = soup.find("div", id="zh-question-detail").div.get_text().encode("utf-8")
@@ -577,14 +578,14 @@ class Question:
             return detail
 
     def get_answers_num(self):
-        if self.soup == None:
+        if self.soup is None:
             self.parser()
         soup = self.soup
         answers_num = int(soup.find("meta", itemprop="answerCount")["content"])
         return answers_num
 
     def get_followers_num(self):
-        if self.soup == None:
+        if self.soup is None:
             self.parser()
         soup = self.soup
         #followers_num = int(soup.find("div", class_="zg-gray-normal").a.strong.string)
@@ -592,7 +593,7 @@ class Question:
         return followers_num
 
     def get_topics(self, plain=False):
-        if self.soup == None:
+        if self.soup is None:
             self.parser()
         soup = self.soup
         keywords = soup.find("meta", itemprop="keywords")["content"]
@@ -603,7 +604,7 @@ class Question:
             return topic_list
 
     def get_visit_times(self):
-        if self.soup == None:
+        if self.soup is None:
             self.parser()
         soup = self.soup
         return int(soup.find("meta", itemprop="zhihu:visitsCount")["content"])
@@ -615,13 +616,13 @@ class Answer:
         self.answer_url = answer_url
         self.requests = requests
 
-        if author != None:
+        if author:
             self.author = author
-        if question != None:
+        if question:
             self.question = question
-        if upvote != None:
+        if upvote:
             self.upvote = upvote
-        if content != None:
+        if content:
             self.content = content
 
     def parser(self):
@@ -633,7 +634,7 @@ class Answer:
         if hasattr(self, "question"):
             return self.question
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             logger.debug(soup)
@@ -648,7 +649,7 @@ class Answer:
         if hasattr(self, "author"):
             return self.author
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             author = None
@@ -657,7 +658,7 @@ class Answer:
             # issue: some items cant find author-link esp in windows ???
             author_tag = soup.find("a", class_="author-link") or soup.find("span", class_="AuthorInfo-name").find("a", class_="UserLink-link")
             # issue: "anymous user" changes into "zhihu user"
-            if author_tag == None or author_tag.get_text(strip='\n') == u"匿名用户":
+            if author_tag is None or author_tag.get_text(strip='\n') == u"匿名用户":
                 author_url = None
                 author = User(author_url)
             else:
@@ -671,7 +672,7 @@ class Answer:
         if hasattr(self, "upvote"):
             return self.upvote
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             soup = self.soup
             return int(soup.find("meta", itemprop="upvoteCount")["content"])
@@ -680,7 +681,7 @@ class Answer:
         if hasattr(self, "content"):
             return self.content
         else:
-            if self.soup == None:
+            if self.soup is None:
                 self.parser()
             
             soup = BeautifulSoup(self.soup.encode("utf-8"), "lxml")
@@ -712,7 +713,7 @@ class Answer:
             file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
             #file_name = self.get_author().get_user_id() + ".html"
         logger.debug(file_name)
-        if path != None: file_name = path + "/" + file_name
+        if path: file_name = path + "/" + file_name
 
         return file_name
 
@@ -722,7 +723,7 @@ class Answer:
         
         # deal with all images
         img_path = 'images'
-        if path != None: img_path = path + "/" + img_path
+        if path: img_path = path + "/" + img_path
         if not os.path.exists(img_path):
             os.mkdir(img_path)
         img_list = content.find_all("img")
@@ -742,7 +743,7 @@ class Answer:
         f.close()
 
     def get_visit_times(self):
-        if self.soup == None:
+        if self.soup is None:
             self.parser()
         soup = self.soup
         for tag_p in soup.find_all("p"):
@@ -750,19 +751,19 @@ class Answer:
                 return int(tag_p.contents[1].contents[0])
 
     def get_voters(self):
-        if self.soup == None:
+        if self.soup is None:
             self.parser()
         soup = self.soup
         data_aid = soup.find("div", class_="zm-item-answer  zm-item-expanded")["data-aid"]
         request_url = 'http://www.zhihu.com/node/AnswerFullVoteInfoV2'
-        # if session == None:
+        # if session is None:
         #     create_session()
         # s = session
         # r = s.get(request_url, params={"params": "{\"answer_id\":\"%d\"}" % int(data_aid)})
         r = requests.get(request_url, params={"params": "{\"answer_id\":\"%d\"}" % int(data_aid)}, headers=headers, verify=False)
         soup = BeautifulSoup(r.content, "lxml")
         voters_info = soup.find_all("span")[1:-1]
-        if len(voters_info) == 0:
+        if not voters_info:
             return
             yield
         else:
@@ -801,7 +802,7 @@ def collection_save(collection):
             logger.warn(file_name +" already exists")
 
 def main():
-    #user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
+    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     # Answer debug
     #a = Answer('http://www.zhihu.com/question/24542658/answer/54158911', requests)
     #a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
@@ -809,10 +810,10 @@ def main():
     # Post debug
     #p = Post('https://zhuanlan.zhihu.com/p/25876351')
     #p.to_html()
-    collection = Collection('https://www.zhihu.com/collection/98493615', requests)
-    collection_save(collection)
+    #collection = Collection('https://www.zhihu.com/collection/98493615', requests)
+    #collection_save(collection)
     
-    #user_save(user)
+    user_save(user)
     
 if __name__=='__main__':
     main()

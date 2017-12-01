@@ -17,6 +17,7 @@ https://github.com/DsSysWay/zhihu_fav_answer_crawl
 学习：
 http://cuiqingcai.com/1319.html bs模块用法
 http://www.jianshu.com/p/5017d8342dd2  python unicode
+http://www.pythonsite.com/?p=358 scrapy 
 
 ## weibo
 

@@ -653,10 +653,10 @@ class Answer:
                 self.parser()
             soup = self.soup
             author = None
+            print soup
             # @TODO: new style changes here
-            # author_tag = soup.find("div", class_="zm-item-answer-author-info") or soup.find("div", class_="AuthorInfo")
             # issue: some items cant find author-link esp in windows ???
-            author_tag = soup.find("a", class_="author-link") or soup.find("span", class_="AuthorInfo-name").find("a", class_="UserLink-link")
+            author_tag = soup.find("span", class_="AuthorInfo-name").find("a", class_="UserLink-link")
             # issue: "anymous user" changes into "zhihu user"
             if author_tag is None or author_tag.get_text(strip='\n') == u"匿名用户":
                 author_url = None
@@ -778,42 +778,50 @@ class Answer:
 
 def user_save(usr):
     for collection in usr.get_collections():
-        # make collection dir
-        path = collection.get_name()
-        if not os.path.exists(path):
-            os.mkdir(path)
+        try:
+            # make collection dir
+            path = collection.get_name()
+            if not os.path.exists(path):
+                os.mkdir(path)
 
-        for answer in collection.get_all_answers():
-            file_name = answer.get_filename(path)
-            if not os.path.exists(file_name):
-                answer.to_html(path)
-            else:
-                logger.warn(file_name +" already exists")
+            for answer in collection.get_all_answers():
+                file_name = answer.get_filename(path)
+                if not os.path.exists(file_name):
+                    answer.to_html(path)
+                else:
+                    logger.warn(file_name +" already exists")
+        except:
+            logger.error("except happens")
 
 def collection_save(collection):
     path = collection.get_name()
     if not os.path.exists(path):
         os.mkdir(path)
     for answer in collection.get_all_answers():
-        file_name = answer.get_filename(path)
-        if not os.path.exists(file_name):
-            answer.to_html(path)
-        else:
-            logger.warn(file_name +" already exists")
+        try:
+            file_name = answer.get_filename(path)
+            if not os.path.exists(file_name):
+                answer.to_html(path)
+            else:
+                logger.warn(file_name +" already exists")
+        except:
+            logger.error("except happens")
 
 def main():
-    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
+    #user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     # Answer debug
     #a = Answer('http://www.zhihu.com/question/24542658/answer/54158911', requests)
     #a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
+    #a = Answer('https://www.zhihu.com/question/37709992/answer/229422113', requests)
+    #print a.get_filename()
     #a.to_html()
     # Post debug
     #p = Post('https://zhuanlan.zhihu.com/p/25876351')
     #p.to_html()
-    #collection = Collection('https://www.zhihu.com/collection/98493615', requests)
-    #collection_save(collection)
+    collection = Collection('https://www.zhihu.com/collection/98493615', requests)
+    collection_save(collection)
     
-    user_save(user)
+    #user_save(user)
     
 if __name__=='__main__':
     main()

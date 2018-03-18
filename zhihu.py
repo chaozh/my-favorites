@@ -1,25 +1,29 @@
 #!/usr/bin/env python
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 
 import urllib
-import os, re, random, platform, logging
+import os
+import re
+import platform
+import logging
 from time import sleep
 # module
 
 # requirements
 import requests
 from bs4 import BeautifulSoup
+from auth import Auth
 
 # Setting Logging
 logger = logging.getLogger()
-#logger.setLevel(logging.DEBUG)
+# logger.setLevel(logging.DEBUG)
 # For console output
 # http://blog.csdn.net/liuchunming033/article/details/39080457
 ch = logging.StreamHandler()
 ch.setLevel(logging.INFO)
 logger.addHandler(ch)
-#fh = logging.FileHandler("logger.txt", mode='w')
-#logger.addHandler(fh)
+# fh = logging.FileHandler("logger.txt", mode='w')
+# logger.addHandler(fh)
 
 headers = {
     'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
@@ -29,9 +33,10 @@ headers = {
     'Referer': "http://www.zhihu.com/"
 }
 
+
 class Zhihu:
     def __init__(self):
-        self.auth = ZhihuAuth()
+        self.auth = Auth()
         self.requests = self.auth.get_requests()
 
     def login(self):
@@ -39,20 +44,20 @@ class Zhihu:
         if not self.auth.islogin():
             logger.error(u"你的身份信息已经失效，请重新生成身份信息( `python auth.py` )。")
             raise Exception("无权限(403)")
-    
+
     def get_requests(self):
         return self.requests
 
     def get_auth(self):
         return self.auth
 
-class Base:
-    def save_img(self,imageURL,fileName):
+    def save_img(self, imageURL, fileName):
         u = urllib.urlopen(imageURL)
         data = u.read()
         f = open(fileName, 'wb')
         f.write(data)
         f.close()
+
 
 class User:
     user_url = None
@@ -63,7 +68,7 @@ class User:
         if user_url is None:
             self.user_id = "匿名用户"
         elif user_url.startswith('www.zhihu.com/people', user_url.index('//') + 2) == False \
-        and user_url.startswith('www.zhihu.com/org', user_url.index('//') + 2) == False:
+                and user_url.startswith('www.zhihu.com/org', user_url.index('//') + 2) == False:
             raise ValueError("\"" + user_url + "\"" + " : it isn't a user url.")
         else:
             self.user_url = user_url
@@ -155,7 +160,7 @@ class User:
                 self.parser()
             soup = self.soup
             try:
-                gender = str(soup.find("span",class_="item gender").i)
+                gender = str(soup.find("span", class_="item gender").i)
                 if (gender == '<i class="icon icon-profile-female"></i>'):
                     return 'female'
                 else:
@@ -198,6 +203,7 @@ class User:
                         name = collection.find("a").string.encode("utf-8")
                         yield Collection(url, requests, name, self)
 
+
 class Collection:
     soup = None
 
@@ -215,7 +221,7 @@ class Collection:
                 self.creator = creator
         else:
             raise ValueError("\"" + url + "\"" + " : it isn't a collection url.")
-        
+
     def parser(self):
         r = self.requests.get(self.url, headers=headers, verify=False)
         soup = BeautifulSoup(r.content, "lxml")
@@ -258,7 +264,7 @@ class Collection:
         else:
             r = self.requests.get(self.url + "?page=" + str(pageNo), headers=headers, verify=False)
             soup = BeautifulSoup(r.content, "lxml")
-            
+
         answer_list = soup.find_all("div", class_="zm-item")
 
         if not answer_list:
@@ -266,7 +272,6 @@ class Collection:
             yield
         else:
             for answer in answer_list:
-                
                 if not answer.find("p", class_="note"):
                     # judge if answer or post by data-type
                     if answer['data-type'] == 'Answer':
@@ -282,7 +287,7 @@ class Collection:
 
                         author = None
                         yield Answer(answer_url, self.requests, author, question)
-                    
+
                     elif answer['data-type'] == 'Post':
                         post_link = answer.find("h2")
                         if post_link:
@@ -303,7 +308,7 @@ class Collection:
             else:
                 r = self.requests.get(self.url + "?page=" + str(i), headers=headers, verify=False)
                 soup = BeautifulSoup(r.content, "lxml")
-                
+
             answer_list = soup.find_all("div", class_="zm-item")
             logger.debug("%d, %d" % (i, len(answer_list)))
             if not answer_list:
@@ -318,7 +323,7 @@ class Collection:
                             if question_link:
                                 question_url = "http://www.zhihu.com" + question_link.a["href"]
                                 question_title = question_link.a.string[:-1].encode("utf-8")
-                            
+
                             question = Question(question_url, self.requests, question_title)
                             answer_url = "http://www.zhihu.com" + answer.find("div", class_="zm-item-answer").link[
                                 "href"]
@@ -327,7 +332,7 @@ class Collection:
 
                             author = None
                             yield Answer(answer_url, self.requests, author, question)
-                        
+
                         elif answer['data-type'] == 'Post':
                             post_link = answer.find("h2")
                             if post_link:
@@ -336,6 +341,7 @@ class Collection:
                                 logger.info(post_url)
                                 yield Post(post_url)
             i = i + 1
+
 
 class Post:
     url = None
@@ -366,9 +372,9 @@ class Post:
         meta = self.meta
         title = meta['title']
         title = title.encode('utf-8')
-        #FIXME
+        # @FIXME
         if platform.system() == 'Windows':
-            title = title.replace('/','／').replace('\\','＼').replace('|', '-')
+            title = title.replace('/', '／').replace('\\', '＼').replace('|', '-')
             title = title.decode('utf-8').encode('gbk')
         return title
 
@@ -379,7 +385,7 @@ class Post:
         content = meta['content']
         content = content.encode('utf-8')
         return content
-    
+
     def get_author(self):
         if hasattr(self, "author"):
             return self.author
@@ -425,12 +431,11 @@ class Post:
             file_name = self.get_title() + ".html"
         else:
             file_name = self.get_title() + "--" + self.get_author().get_user_id() + ".html"
-            #file_name = self.get_author().get_user_id() + ".html"
+            # file_name = self.get_author().get_user_id() + ".html"
         logger.debug(file_name)
-        if path: 
+        if path:
             file_name = path + "/" + file_name
         return file_name
-
 
     def to_json(self):
         f = open(self.get_title() + ".json", "wt")
@@ -443,7 +448,8 @@ class Post:
         f = open(file_name, "wt")
         f.write(content)
         f.close()
-      
+
+
 class Column:
     url = None
     meta = None
@@ -513,7 +519,7 @@ class Column:
                 self.parser()
             meta = self.meta
             creator_tag = meta['creator']
-            creator = User(creator_tag['profileUrl'],creator_tag['slug'])
+            creator = User(creator_tag['profileUrl'], creator_tag['slug'])
             return creator
 
     def get_all_posts(self):
@@ -544,10 +550,11 @@ class Question:
         else:
             self.url = url
 
-        if title: self.title = title
+        if title:
+            self.title = title
 
     def parser(self):
-        r = self.requests.get(self.url,headers=headers, verify=False)
+        r = self.requests.get(self.url, headers=headers, verify=False)
         self.soup = BeautifulSoup(r.content, "lxml")
 
     def get_title(self):
@@ -557,11 +564,11 @@ class Question:
             if self.soup is None:
                 self.parser()
             soup = self.soup
-            title = soup.find("h2", class_="zm-item-title").string.encode("utf-8").replace("\n", "")
+            title = soup.find("meta", itemprop="name")["content"].encode("utf-8") \
+                or soup.find("h2", class_="zm-item-title").string.encode("utf-8").replace("\n", "")
             self.title = title
-        
-        logger.debug(title)
-        title = title.replace('/','／').replace('\\','＼')
+        # @FIXME
+        title = title.replace('/', '／').replace('\\', '＼')
         if platform.system() == 'Windows':
             title = title.decode('utf-8').encode('gbk')
         return title
@@ -588,7 +595,7 @@ class Question:
         if self.soup is None:
             self.parser()
         soup = self.soup
-        #followers_num = int(soup.find("div", class_="zg-gray-normal").a.strong.string)
+        # followers_num = int(soup.find("div", class_="zg-gray-normal").a.strong.string)
         followers_num = int(soup.find("meta", itemprop="zhihu:followerCount")["content"])
         return followers_num
 
@@ -608,6 +615,7 @@ class Question:
             self.parser()
         soup = self.soup
         return int(soup.find("meta", itemprop="zhihu:visitsCount")["content"])
+
 
 class Answer:
     soup = None
@@ -639,10 +647,10 @@ class Answer:
             soup = self.soup
             logger.debug(soup)
             # New Style Changes
-            question_link = soup.find("a", class_="QuestionMainAction") or soup.find("h2", class_="zm-item-title zm-editable-content").a
+            question_link = soup.find("a", class_="QuestionMainAction") \
+                or soup.find("h2", class_="zm-item-title zm-editable-content").a
             url = "http://www.zhihu.com" + question_link["href"]
-            title = soup.find("h1", class_="QuestionHeader-title").string.encode("utf-8") or question_link.string.encode("utf-8")
-            question = Question(url, self.requests, title)
+            question = Question(url, self.requests)
             return question
 
     def get_author(self):
@@ -653,7 +661,7 @@ class Answer:
                 self.parser()
             soup = self.soup
             author = None
-            print soup
+            # print soup
             # @TODO: new style changes here
             # issue: some items cant find author-link esp in windows ???
             author_tag = soup.find("span", class_="AuthorInfo-name").find("a", class_="UserLink-link")
@@ -663,9 +671,12 @@ class Answer:
                 author = User(author_url)
             else:
                 author_id = author_tag.string.encode("utf-8")
-                author_url = "http://www.zhihu.com" + author_tag["href"]
+                if author_tag["href"].find("zhihu") >= 0:
+                    author_url = author_tag["href"]
+                else:
+                    author_url = "http://www.zhihu.com" + author_tag["href"]
                 author = User(author_url, author_id)
-            
+
             return author
 
     def get_upvote(self):
@@ -683,11 +694,11 @@ class Answer:
         else:
             if self.soup is None:
                 self.parser()
-            
+
             soup = BeautifulSoup(self.soup.encode("utf-8"), "lxml")
             # @TODO: new style changes here
-            answer = soup.find("div", class_="zm-editable-content clearfix") or soup.find("div", class_="RichContent-inner")
-            # logger.debug(answer)
+            answer = soup.find("div", class_="zm-editable-content clearfix") \
+                or soup.find("div", class_="RichContent-inner")
 
             soup.body.extract()
             soup.head.insert_after(soup.new_tag("body", **{'class': 'zhi'}))
@@ -711,24 +722,25 @@ class Answer:
             file_name = self.get_question().get_title() + ".html"
         else:
             file_name = self.get_question().get_title() + "--" + self.get_author().get_user_id() + ".html"
-            #file_name = self.get_author().get_user_id() + ".html"
+            # file_name = self.get_author().get_user_id() + ".html"
         logger.debug(file_name)
-        if path: file_name = path + "/" + file_name
+        if path:
+            file_name = path + "/" + file_name
 
         return file_name
 
-
     def to_html(self, path=None):
         content = self.get_content()
-        
+
         # deal with all images
         img_path = 'images'
-        if path: img_path = path + "/" + img_path
+        if path:
+            img_path = path + "/" + img_path
         if not os.path.exists(img_path):
             os.mkdir(img_path)
         img_list = content.find_all("img")
         for img in img_list:
-            #FIXME: sp deal with symbol
+            # FIXME: sp deal with symbol
             url = img["src"]
             name = url.split("/")[-1]
             if name.startswith("equation"):
@@ -776,6 +788,7 @@ class Answer:
                     voter_id = voter_info.a["title"].encode("utf-8")
                     yield User(voter_url, voter_id)
 
+
 def user_save(usr):
     for collection in usr.get_collections():
         try:
@@ -789,9 +802,10 @@ def user_save(usr):
                 if not os.path.exists(file_name):
                     answer.to_html(path)
                 else:
-                    logger.warn(file_name +" already exists")
+                    logger.warn(file_name + " already exists")
         except:
             logger.error("except happens")
+
 
 def collection_save(collection):
     path = collection.get_name()
@@ -803,25 +817,26 @@ def collection_save(collection):
             if not os.path.exists(file_name):
                 answer.to_html(path)
             else:
-                logger.warn(file_name +" already exists")
+                logger.warn(file_name + " already exists")
         except:
             logger.error("except happens")
 
+
 def main():
-    #user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
+    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
     # Answer debug
-    #a = Answer('http://www.zhihu.com/question/24542658/answer/54158911', requests)
-    #a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
-    #a = Answer('https://www.zhihu.com/question/37709992/answer/229422113', requests)
-    #print a.get_filename()
-    #a.to_html()
+    # a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
+    # 登陆才能解决：
+    # a = Answer("http://www.zhihu.com/question/37709992/answer/73856181", requests)
+    # a = Answer('https://www.zhihu.com/question/37709992/answer/229422113', requests)
+    # print a.get_filename()
+    # a.to_html()
     # Post debug
-    #p = Post('https://zhuanlan.zhihu.com/p/25876351')
-    #p.to_html()
-    collection = Collection('https://www.zhihu.com/collection/98493615', requests)
-    collection_save(collection)
-    
-    #user_save(user)
-    
-if __name__=='__main__':
+    # p = Post('https://zhuanlan.zhihu.com/p/25876351')
+    # p.to_html()
+    # collection = Collection('https://www.zhihu.com/collection/40876524', requests)
+    # collection_save(collection)
+    # user_save(user)
+
+if __name__ == '__main__':
     main()

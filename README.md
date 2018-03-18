@@ -5,14 +5,16 @@ https://github.com/geekan/scrapy-examples
 
 ## zhihu
 
-需求：~~存储回答，包含图片，图片需要另存本地~~，字段分数据库存储，数目无法对应
-
-改进：python继承、爬虫的容错性（自动跳过）、~~匿名判断兼容~~
+需求：专栏图片未存储
 
 参考：
-https://github.com/xpisme/scrapy_zhihu
-https://github.com/jwzh222/python-scrapy-zhihu
-https://github.com/DsSysWay/zhihu_fav_answer_crawl
+https://github.com/shanelau/zhihu nodejs版本
+https://github.com/xchaoinfo/fuck-login 所有网站的登陆
+https://github.com/moxiegushi/zhihu 爬虫包含验证码破解
+https://github.com/wycm/zhihu-crawler java版本
+https://github.com/mtianyan/ArticleSpider 一直有更新 scrapy爬虫
+https://github.com/AlexTan-b-z/ZhihuSpider 
+https://github.com/xpisme/scrapy_zhihu 有爬出的1w用户数据
 
 学习：
 http://cuiqingcai.com/1319.html bs模块用法

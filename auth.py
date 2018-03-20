@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#-*- coding:utf-8 -*-
+# -*- coding:utf-8 -*-
 
 # Build-in / Std
 import os, sys, time, platform, random, logging
@@ -14,24 +14,43 @@ from ConfigParser import ConfigParser
 # requirements
 import requests
 
+# 构造 Request headers
+agent = 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Mobile Safari/537.36'
+headers = {
+    "Host": "www.zhihu.com",
+    "Referer": "https://www.zhihu.com/",
+    'User-Agent': agent
+}
+
 logger = logging.getLogger()
+
 
 class LoginPasswordError(Exception):
     def __init__(self, message):
-        if type(message) != type("") or message == "": self.message = u"帐号密码错误"
-        else: self.message = message
+        if type(message) != type("") or message == "":
+            self.message = u"帐号密码错误"
+        else:
+            self.message = message
         logger.error(self.message)
+
 
 class NetworkError(Exception):
     def __init__(self, message):
-        if type(message) != type("") or message == "": self.message = u"网络异常"
-        else: self.message = message
+        if type(message) != type("") or message == "":
+            self.message = u"网络异常"
+        else:
+            self.message = message
         logger.error(self.message)
+
+
 class AccountError(Exception):
     def __init__(self, message):
-        if type(message) != type("") or message == "": self.message = u"帐号类型错误"
-        else: self.message = message
+        if type(message) != type("") or message == "":
+            self.message = u"帐号类型错误"
+        else:
+            self.message = message
         logger.error(self.message)
+
 
 class Auth:
     def __init__(self):
@@ -47,30 +66,30 @@ class Auth:
 
     def download_captcha(self):
         url = "https://www.zhihu.com/captcha.gif"
-        r = requests.get(url, params={"r": random.random(), "type": "login"}, verify=False)
+        r = self.session.get(url, params={"r": random.random(), "type": "login"}, headers=headers, verify=False)
         if int(r.status_code) != 200:
             raise NetworkError(u"验证码请求失败")
         image_name = u"verify." + r.headers['content-type'].split("/")[1]
-        open( image_name, "wb").write(r.content)
+        open(image_name, "wb").write(r.content)
         """
             System platform: https://docs.python.org/2/library/platform.html
         """
         logger.info(u"正在调用外部程序渲染验证码 ... ")
         if platform.system() == "Linux":
-            logger.info(u"Command: xdg-open %s &" % image_name )
-            os.system("xdg-open %s &" % image_name )
+            logger.info(u"Command: xdg-open %s &" % image_name)
+            os.system("xdg-open %s &" % image_name)
         elif platform.system() == "Darwin":
-            logger.info(u"Command: open %s &" % image_name )
-            os.system("open %s &" % image_name )
+            logger.info(u"Command: open %s &" % image_name)
+            os.system("open %s &" % image_name)
         elif platform.system() in ("SunOS", "FreeBSD", "Unix", "OpenBSD", "NetBSD"):
-            os.system("open %s &" % image_name )
+            os.system("open %s &" % image_name)
         elif platform.system() == "Windows":
-            os.system("%s" % image_name )
+            os.system("%s" % image_name)
         else:
             logger.info(u"我们无法探测你的作业系统，请自行打开验证码 %s 文件，并输入验证码。" % os.path.join(os.getcwd(), image_name) )
 
-        sys.stdout.write(termcolor.colored(u"请输入验证码: ", "cyan") )
-        captcha_code = raw_input( )
+        sys.stdout.write(u"请输入验证码: ")
+        captcha_code = raw_input()
         return captcha_code
 
     def search_xsrf(self):
@@ -80,18 +99,19 @@ class Auth:
             raise NetworkError(u"验证码请求失败")
         results = re.compile(r"\<input\stype=\"hidden\"\sname=\"_xsrf\"\svalue=\"(\S+)\"", re.DOTALL).findall(r.text)
         if len(results) < 1:
-            logger.info(u"提取XSRF 代码失败" )
+            logger.info(u"提取XSRF 代码失败")
             return None
         return results[0]
 
     def build_form(self, account, password):
         if re.match(r"^1\d{10}$", account): account_type = "phone_num"
         elif re.match(r"^\S+\@\S+\.\S+$", account): account_type = "email"
-        else: raise AccountError(u"帐号类型错误")
+        else:
+            raise AccountError(u"帐号类型错误")
 
-        form = {account_type: account, "password": password, "remember_me": True }
+        form = {account_type: account, "password": password, "remember_me": True}
 
-        form['_xsrf'] = self.search_xsrf()
+        # form['_xsrf'] = self.search_xsrf()
         form['captcha'] = self.download_captcha()
         return form
 
@@ -102,15 +122,6 @@ class Auth:
             url = "https://www.zhihu.com/login/phone_num"
         else:
             raise ValueError(u"账号类型错误")
-
-        headers = {
-            'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
-            'Host': "www.zhihu.com",
-            'Origin': "http://www.zhihu.com",
-            'Pragma': "no-cache",
-            'Referer': "http://www.zhihu.com/",
-            'X-Requested-With': "XMLHttpRequest"
-        }
 
         r = self.session.post(url, data=form, headers=headers, verify=False)
         if int(r.status_code) != 200:
@@ -126,18 +137,17 @@ class Auth:
                 logger.debug(r.content)
                 result = {}
             if result["r"] == 0:
-                logger.success(u"登录成功！" )
+                logger.info(u"登录成功！")
                 return {"result": True}
             elif result["r"] == 1:
-                logger.success(u"登录失败！" )
+                logger.info(u"登录失败！")
                 return {"error": {"code": int(result['errcode']), "message": result['msg'], "data": result['data'] } }
             else:
-                logger.warn(u"表单上传出现未知错误: \n \t %s )" % ( str(result) ) )
-                return {"error": {"code": -1, "message": u"unknown error"} }
+                logger.warn(u"表单上传出现未知错误: \n \t %s )" % (str(result)))
+                return {"error": {"code": -1, "message": u"unknown error"}}
         else:
-            logger.warn(u"无法解析服务器的响应内容: \n \t %s " % r.text )
-            return {"error": {"code": -2, "message": u"parse error"} }
-
+            logger.warn(u"无法解析服务器的响应内容: \n \t %s " % r.text)
+            return {"error": {"code": -2, "message": u"parse error"}}
 
     def islogin(self):
         # check session
@@ -153,7 +163,6 @@ class Auth:
             logger.warn(u"网络故障")
             return None
 
-
     def read_account_from_config_file(self, config_file="config.ini"):
         cf = ConfigParser()
         if os.path.exists(config_file) and os.path.isfile(config_file):
@@ -165,21 +174,22 @@ class Auth:
             if email == "" or password == "":
                 logger.warn(u"帐号信息无效")
                 return (None, None)
-            else: return (email, password)
+            else:
+                return (email, password)
         else:
             logger.error(u"配置文件加载失败！")
             return (None, None)
 
     def login(self, account=None, password=None):
-        if self.islogin() == True:
-            logger.success(u"你已经登录过咯")
+        if self.islogin():
+            logger.info(u"你已经登录过咯")
             return True
 
-        if account == None:
+        if account is None:
             (account, password) = self.read_account_from_config_file()
-        if account == None:
+        if account is None:
             sys.stdout.write(u"请输入登录账号: ")
-            account  = raw_input()
+            account = raw_input()
             password = getpass("请输入登录密码: ")
 
         form_data = self.build_form(account, password)
@@ -193,22 +203,23 @@ class Auth:
         if "error" in result:
             if result["error"]['code'] == 1991829:
                 # 验证码错误
-                logger.error(u"验证码输入错误，请准备重新输入。" )
+                logger.error(u"验证码输入错误，请准备重新输入。")
                 return self.login()
             elif result["error"]['code'] == 100005:
                 # 密码错误
-                logger.error(u"密码输入错误，请准备重新输入。" )
+                logger.error(u"密码输入错误，请准备重新输入。")
                 return self.login()
             else:
-                logger.warn(u"unknown error." )
+                logger.warn(u"unknown error.")
                 return False
-        elif "result" in result and result['result'] == True:
+        elif "result" in result and result['result']:
             # 登录成功
-            logger.success(u"登录成功！" )
-            self.requests.cookies.save()
+            logger.info(u"登录成功！")
+            self.session.cookies.save()
             return True
 
 if __name__ == "__main__":
     # login(account="xxxx@email.com", password="xxxxx")
     auth = Auth()
     auth.login()
+    print auth.islogin()

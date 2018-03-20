@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-from zhihu
+import zhihu
 from pymongo import MongoClient
 
 import logging

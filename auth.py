@@ -83,8 +83,8 @@ class Auth:
             os.system("open %s &" % image_name)
         elif platform.system() in ("SunOS", "FreeBSD", "Unix", "OpenBSD", "NetBSD"):
             os.system("open %s &" % image_name)
-        elif platform.system() == "Windows":
-            os.system("%s" % image_name)
+        # elif platform.system() == "Windows":
+            # os.system("%s" % image_name)
         else:
             logger.info(u"我们无法探测你的作业系统，请自行打开验证码 %s 文件，并输入验证码。" % os.path.join(os.getcwd(), image_name) )
 
@@ -94,7 +94,7 @@ class Auth:
 
     def search_xsrf(self):
         url = "http://www.zhihu.com/"
-        r = requests.get(url, verify=False)
+        r = requests.get(url, headers=headers, verify=False)
         if int(r.status_code) != 200:
             raise NetworkError(u"验证码请求失败")
         results = re.compile(r"\<input\stype=\"hidden\"\sname=\"_xsrf\"\svalue=\"(\S+)\"", re.DOTALL).findall(r.text)
@@ -111,7 +111,7 @@ class Auth:
 
         form = {account_type: account, "password": password, "remember_me": True}
 
-        # form['_xsrf'] = self.search_xsrf()
+        form['_xsrf'] = self.search_xsrf()
         form['captcha'] = self.download_captcha()
         return form
 

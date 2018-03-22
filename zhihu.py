@@ -28,9 +28,11 @@ logger.addHandler(ch)
 headers = {
     'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36",
     'Host': "www.zhihu.com",
-    'Origin': "http://www.zhihu.com",
     'Pragma': "no-cache",
-    'Referer': "http://www.zhihu.com/"
+    'Referer': "http://www.zhihu.com/",
+    'Accept': "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+    'Accept-encoding': "gzip, deflate, br",
+    'Accept-language': "zh-CN,zh;q=0.9,en;q=0.8,ja;q=0.7,zh-TW;q=0.6"
 }
 
 
@@ -44,6 +46,7 @@ class Zhihu:
         if not self.auth.islogin():
             logger.error(u"你的身份信息已经失效，请重新生成身份信息( `python auth.py` )。")
             raise Exception("无权限(403)")
+        self.requests = self.auth.get_requests()
 
     def get_requests(self):
         return self.requests
@@ -64,7 +67,9 @@ class User:
     # session = None
     soup = None
 
-    def __init__(self, user_url, user_id=None):
+    def __init__(self, user_url, requests, user_id=None):
+        self.requests = requests
+
         if user_url is None:
             self.user_id = "匿名用户"
         elif user_url.startswith('www.zhihu.com/people', user_url.index('//') + 2) == False \
@@ -76,7 +81,7 @@ class User:
                 self.user_id = user_id
 
     def parser(self):
-        r = requests.get(self.user_url, headers=headers, verify=False)
+        r = self.requests.get(self.user_url, headers=headers, verify=False)
         soup = BeautifulSoup(r.content, "lxml")
         self.soup = soup
 
@@ -193,7 +198,7 @@ class User:
             else:
                 for i in xrange((collections_num - 1) / 20 + 1):
                     collection_url = self.user_url + "collections?page=" + str(i + 1)
-                    r = requests.get(collection_url, headers=headers, verify=False)
+                    r = self.requests.get(collection_url, headers=headers, verify=False)
                     soup = BeautifulSoup(r.content, "lxml")
                     collection_tags = soup.find_all("div", class_="FavlistItem-title")
                     logger.debug(len(collection_tags))
@@ -201,7 +206,7 @@ class User:
                         url = "http://www.zhihu.com" + \
                               collection.find("a")["href"]
                         name = collection.find("a").string.encode("utf-8")
-                        yield Collection(url, requests, name, self)
+                        yield Collection(url, self.requests, name, self)
 
 
 class Collection:
@@ -251,7 +256,7 @@ class Collection:
             soup = self.soup
             creator_id = soup.find("h2", class_="zm-list-content-title").a.string.encode("utf-8")
             creator_url = "http://www.zhihu.com" + soup.find("h2", class_="zm-list-content-title").a["href"]
-            creator = User(creator_url, creator_id)
+            creator = User(creator_url, creator_id, self.requests)
             self.creator = creator
             return creator
 
@@ -294,7 +299,7 @@ class Collection:
                             post_url = post_link.a["href"]
 
                             logger.debug(post_url)
-                            yield Post(post_url)
+                            yield Post(post_url, self.requests)
 
     def get_all_answers(self):
         i = 1
@@ -339,7 +344,7 @@ class Collection:
                                 post_url = post_link.a["href"]
 
                                 logger.info(post_url)
-                                yield Post(post_url)
+                                yield Post(post_url, self.requests)
             i = i + 1
 
 
@@ -348,7 +353,8 @@ class Post:
     meta = None
     slug = None
 
-    def __init__(self, url):
+    def __init__(self, url, requests):
+        self.requests = requests
 
         if not re.compile(r"(http|https)://zhuanlan.zhihu.com/p/\d{8}").match(url):
             raise ValueError("\"" + url + "\"" + " : it isn't a question url.")
@@ -395,7 +401,7 @@ class Post:
             meta = self.meta
             author_tag = meta['author']
             author_id = author_tag['name'].encode('utf-8')
-            author = User(author_tag['profileUrl'], author_id)
+            author = User(author_tag['profileUrl'], author_id, self.requests)
             return author
 
     def get_column(self):
@@ -404,7 +410,7 @@ class Post:
         meta = self.meta
         if hasattr(meta, "column"):
             column_url = 'https://zhuanlan.zhihu.com/' + meta['column']['slug']
-            return Column(column_url, meta['column']['slug'])
+            return Column(column_url, meta['column']['slug'], self.requests)
         else:
             return None
 
@@ -454,7 +460,8 @@ class Column:
     url = None
     meta = None
 
-    def __init__(self, url, slug=None):
+    def __init__(self, url, requests, slug=None):
+        self.requests = requests
 
         if not re.compile(r"(http|https)://zhuanlan.zhihu.com/([0-9a-zA-Z]+)").match(url):
             raise ValueError("\"" + url + "\"" + " : it isn't a question url.")
@@ -471,7 +478,7 @@ class Column:
             'Host': "zhuanlan.zhihu.com",
             'Accept': "application/json, text/plain, */*"
         }
-        r = requests.get('https://zhuanlan.zhihu.com/api/columns/' + self.slug, headers=headers, verify=False)
+        r = self.requests.get('https://zhuanlan.zhihu.com/api/columns/' + self.slug, headers=headers, verify=False)
         self.meta = r.json()
 
     def get_title(self):
@@ -519,7 +526,7 @@ class Column:
                 self.parser()
             meta = self.meta
             creator_tag = meta['creator']
-            creator = User(creator_tag['profileUrl'], creator_tag['slug'])
+            creator = User(creator_tag['profileUrl'], creator_tag['slug'], self.requests)
             return creator
 
     def get_all_posts(self):
@@ -532,7 +539,7 @@ class Column:
             for i in xrange((posts_num - 1) / 20 + 1):
                 parm = {'limit': 20, 'offset': 20*i}
                 url = 'https://zhuanlan.zhihu.com/api/columns/' + self.slug + '/posts'
-                r = requests.get(url, params=parm, headers=headers, verify=False)
+                r = self.requests.get(url, params=parm, headers=headers, verify=False)
                 posts_list = r.json()
                 for p in posts_list:
                     post_url = 'https://zhuanlan.zhihu.com/p/' + str(p['slug'])
@@ -675,7 +682,7 @@ class Answer:
                     author_url = author_tag["href"]
                 else:
                     author_url = "http://www.zhihu.com" + author_tag["href"]
-                author = User(author_url, author_id)
+                author = User(author_url, author_id, self.requests)
 
             return author
 
@@ -772,7 +779,7 @@ class Answer:
         #     create_session()
         # s = session
         # r = s.get(request_url, params={"params": "{\"answer_id\":\"%d\"}" % int(data_aid)})
-        r = requests.get(request_url, params={"params": "{\"answer_id\":\"%d\"}" % int(data_aid)}, headers=headers, verify=False)
+        r = self.requests.get(request_url, params={"params": "{\"answer_id\":\"%d\"}" % int(data_aid)}, headers=headers, verify=False)
         soup = BeautifulSoup(r.content, "lxml")
         voters_info = soup.find_all("span")[1:-1]
         if not voters_info:
@@ -786,7 +793,7 @@ class Answer:
                 else:
                     voter_url = "http://www.zhihu.com" + str(voter_info.a["href"])
                     voter_id = voter_info.a["title"].encode("utf-8")
-                    yield User(voter_url, voter_id)
+                    yield User(voter_url, voter_id, self.requests)
 
 
 def user_save(usr):
@@ -823,20 +830,23 @@ def collection_save(collection):
 
 
 def main():
-    user = User('https://www.zhihu.com/people/zheng-chuan-jun/')
+    auth = Zhihu()
+    auth.login()
+    session = auth.get_requests()
+    user = User('https://www.zhihu.com/people/zheng-chuan-jun/', session)
     # Answer debug
-    # a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', requests)
+    # a = Answer('https://www.zhihu.com/question/59100862/answer/163304880', session)
     # 登陆才能解决：
-    # a = Answer("http://www.zhihu.com/question/37709992/answer/73856181", requests)
-    # a = Answer('https://www.zhihu.com/question/37709992/answer/229422113', requests)
+    # a = Answer("http://www.zhihu.com/question/37709992/answer/73856181", session)
+    # a = Answer('https://www.zhihu.com/question/37709992/answer/229422113', session)
     # print a.get_filename()
     # a.to_html()
     # Post debug
     # p = Post('https://zhuanlan.zhihu.com/p/25876351')
     # p.to_html()
-    # collection = Collection('https://www.zhihu.com/collection/40876524', requests)
+    # collection = Collection('https://www.zhihu.com/collection/40876524', session)
     # collection_save(collection)
-    # user_save(user)
+    user_save(user)
 
 if __name__ == '__main__':
     main()
